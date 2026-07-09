@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="rj-grad-a" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a7cff"/>
+      <stop offset="100%" stop-color="#0050d6"/>
+    </linearGradient>
+    <linearGradient id="rj-grad-b" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1a7cff" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#0050d6" stop-opacity="0.25"/>
+    </linearGradient>
+  </defs>
+  <rect x="10" y="3" width="19" height="19" rx="5" fill="url(#rj-grad-b)" opacity="0.55"/>
+  <rect x="6.5" y="6.5" width="19" height="19" rx="5" fill="url(#rj-grad-b)" opacity="0.8"/>
+  <rect x="3" y="10" width="19" height="19" rx="5" fill="url(#rj-grad-a)"/>
+  <path d="M9 22.5 L16 14" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.92"/>
+  <circle cx="16" cy="14" r="1.6" fill="#ffffff"/>
+</svg>

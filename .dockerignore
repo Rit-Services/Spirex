@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+dist
+**/dist
+build
+**/build
+*.log
+npm-debug.log
+.git
+.gitignore
+.dockerignore
+.env
+**/.env
+.env.*
+**/.env.*
+server/uploads

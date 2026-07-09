@@ -1,0 +1,42 @@
+# Secret-scan config for the SPIREX tree — the pre-publish gate.
+# Run via scripts/secret-scan.sh (Docker; no local install needed).
+#
+# Extends the default gitleaks ruleset. Allowlisted paths are either
+# .gitignore'd (never published — e.g. the real local .env) or third-party /
+# generated content that drowns the signal. NOTE: `.env.test` and
+# `env.example` files are deliberately NOT allowlisted — they ship in the
+# repo, so they must stay placeholder-only (a real key in an example file is
+# exactly the leak this gate exists to catch).
+
+[extend]
+useDefault = true
+
+# Internal RIT Services identifiers must never ship in the OSS tree. Default
+# gitleaks rules can't catch these (an email address or a plain hardcoded
+# password isn't a token pattern) — found the hard way when a fallback
+# credential pair in create-superadmin.ts sailed through the scan.
+[[rules]]
+id = "spirex-internal-identifier"
+description = "Internal RIT Services email / hostname / known credential string"
+regex = '''rit\.services\.backend@gmail\.com|@ritjira\.local|ThisIsSecret'''
+
+[allowlist]
+description = "gitignored-or-generated paths, never published"
+# Documentation placeholders only — never allowlist a whole docs file; it must
+# stay scanned so a REAL key pasted into an example still trips the gate.
+regexes = [
+  '''rjk_YOUR_KEY_HERE''',
+]
+paths = [
+  '''node_modules/''',
+  '''dist/''',
+  '''(^|/)\.env$''',
+  '''(^|/)\.env\.local$''',
+  '''(^|/)\.qwen/''',
+  '''(^|/)\.vscode/''',
+  '''LinkedInPost/''',
+  '''(^|/)uploads(-test)?/''',
+  '''package-lock\.json$''',
+  '''test-results/''',
+  '''playwright-report/''',
+]

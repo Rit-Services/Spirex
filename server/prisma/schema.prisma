@@ -1,0 +1,825 @@
+// Prisma schema — Phase 9A.1: custom workflow labels/colors/order.
+// Adds per-project WorkflowStatus rows (one per core StoryStatus) so admins can
+// rename columns, recolor, and reorder. StoryStatus enum stays as the source
+// of truth; the full enum→FK cutover is deferred to a follow-up phase.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum GlobalRole {
+  admin
+  member
+  // External / client user — read-only-ish. Cannot create projects and cannot
+  // run JIRA imports. Granted finer access through project membership only.
+  external
+}
+
+enum ProjectRole {
+  lead
+  developer
+  reporter
+  viewer
+}
+
+// Tenant lifecycle. `suspended` blocks all tenant access to the org (the
+// superadmin can still manage it); we never hard-delete in Phase 1.
+enum OrgStatus {
+  active
+  suspended
+}
+
+enum EpicStatus {
+  open
+  in_progress
+  done
+}
+
+enum StoryType {
+  story
+  bug
+  task
+}
+
+enum StoryStatus {
+  todo
+  in_progress
+  in_review
+  qa
+  done
+}
+
+enum StatusCategory {
+  todo
+  in_progress
+  done
+}
+
+enum Priority {
+  low
+  medium
+  high
+  critical
+}
+
+enum SprintStatus {
+  planned
+  active
+  completed
+}
+
+enum ActivityEvent {
+  created
+  status_changed
+  workflow_status_changed
+  assigned
+  sprint_moved
+  epic_changed
+  commented
+  worklogged
+  subtask_added
+  linked
+  unlinked
+  imported
+  reporter_changed
+  voice_imported
+  voice_agent_created
+  dates_changed
+  custom_field_changed
+  worklog_deleted
+  attachment_deleted
+  comment_deleted
+}
+
+// Jira-style custom fields (v1). `select` options live on the definition as a
+// JSON string array; every stored value is JSON so one column serves all types.
+enum CustomFieldType {
+  text
+  number
+  date
+  select
+  checkbox
+}
+
+enum NotificationType {
+  story_assigned
+  story_commented
+  story_status_changed
+  story_reporter_changed
+  story_mentioned
+  story_priority_changed
+  // Catch-all for field edits that don't have a dedicated type: title,
+  // description, acceptance criteria, epic, sprint, points, type, estimate.
+  story_updated
+  // Weekly summary email. Email-only — never written as an in-app row.
+  weekly_digest
+  // Phase 2: a cross-org "join my org" invitation. Written in-app for the
+  // recipient (an existing account); not part of the toggleable preference grid.
+  org_invite
+}
+
+// Delivery channel for a notification. `in_app` writes a Notification row;
+// `email` sends mail. The enum is deliberately extensible — slack / push /
+// webhook slot in here later with no dispatcher rework.
+enum NotificationChannel {
+  in_app
+  email
+}
+
+enum ImportStatus {
+  pending
+  committed
+  discarded
+}
+
+enum LinkType {
+  blocks
+  blocked_by
+  duplicates
+  duplicated_by
+  relates_to
+  reiterates
+  reiterated_by
+}
+
+enum AttachmentKind {
+  image
+  document
+  audio
+  video
+}
+
+model User {
+  id             String     @id @default(cuid())
+  name           String
+  email          String     @unique
+  passwordHash   String
+  avatarUrl      String?
+  // Phase 13: global role is being relocated onto OrgMembership. `globalRole`
+  // is KEPT during the transition (still read until the cutover step) and
+  // dropped only after all readers move to membership-resolved roles.
+  globalRole     GlobalRole @default(member)
+  // Phase 13: platform operator. Superadmins govern the platform itself, sit
+  // OUTSIDE every organization (no OrgMembership, no seat consumed), and get
+  // their own dashboard. Kept off OrgMembership on purpose.
+  isSuperAdmin   Boolean    @default(false)
+  disabledAt     DateTime?
+  // External "unlinked" user — a JIRA person who didn't map to a real Spirex
+  // account on import. Exists ONLY to attribute imported work truthfully
+  // (reporter/assignee/comment author/epic creator) and renders as
+  // "Name (unlinked)". Never logs in (disabledAt is also set + synthetic email),
+  // holds NO membership, consumes NO seat. `externalId` is the source account id
+  // (JIRA accountId) so re-imports reuse the same ghost instead of duplicating.
+  // A later admin action can link one of these to a real user.
+  isExternal     Boolean    @default(false)
+  externalSource String?
+  externalId     String?
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  memberships              ProjectMember[]
+  orgMemberships           OrgMembership[]                 @relation("OrgMembershipUser")
+  createdProjects          Project[]                       @relation("ProjectCreatedBy")
+  assignedStories          Story[]                         @relation("StoryAssignee")
+  reportedStories          Story[]                         @relation("StoryReporter")
+  createdEpics             Epic[]                          @relation("EpicCreatedBy")
+  createdSprints           Sprint[]                        @relation("SprintCreatedBy")
+  activityEntries          ActivityLog[]                   @relation("ActivityActor")
+  worklogs                 Worklog[]                       @relation("WorklogAuthor")
+  comments                 Comment[]                       @relation("CommentAuthor")
+  attachments              Attachment[]                    @relation("AttachmentUploader")
+  imports                  DocumentImport[]                @relation("ImportUploader")
+  imageImports             ImageImport[]                   @relation("ImageImportUploader")
+  notifications            Notification[]                  @relation("NotificationRecipient")
+  invites                  Invite[]                        @relation("InviteUser")
+  apiKeys                  UserApiKey[]                    @relation("UserApiKeyOwner")
+  notificationPrefs        NotificationPreference[]        @relation("NotificationPrefUser")
+  watching                 StoryWatcher[]                  @relation("StoryWatcherUser")
+  projectNotificationPrefs ProjectNotificationPreference[] @relation("ProjectNotifPrefUser")
+  jiraConnection           JiraConnection?                 @relation("UserJiraConnection")
+  authIdentities           AuthIdentity[]                  @relation("AuthIdentityUser")
+
+  @@unique([externalSource, externalId])
+  @@index([email])
+  @@index([isExternal])
+}
+
+// SSO: links an external IdP account to a local user. One row per
+// (provider, providerUserId); a user may hold several (Microsoft now, Google
+// later). Lookup is ALWAYS by the immutable provider subject (Entra `oid`) —
+// never by email, which is mutable and, on Microsoft, not always verified.
+// `email` is a display/debug snapshot taken at link time. SSO never creates
+// users (RitJira is invite-only); it only authenticates existing ones, so
+// passwordHash stays required on User and both sign-in methods coexist.
+model AuthIdentity {
+  id             String   @id @default(cuid())
+  userId         String
+  provider       String // 'microsoft' | 'google'
+  providerUserId String
+  email          String
+  createdAt      DateTime @default(now())
+
+  user User @relation("AuthIdentityUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+// A user's saved JIRA Cloud connection, so they don't re-enter credentials for
+// every import. One per user (@unique userId). The API token is a secret and is
+// stored encrypted (AES-256-GCM) in `apiTokenCipher` — never in plaintext, and
+// never returned to the client; it's decrypted server-side only to call JIRA.
+model JiraConnection {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  domain         String
+  email          String
+  apiTokenCipher String
+  accountId      String?
+  displayName    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation("UserJiraConnection", fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model UserApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  prefix     String    @unique
+  keyHash    String
+  expiresAt  DateTime?
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation("UserApiKeyOwner", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Invite {
+  id             String      @id @default(cuid())
+  userId         String
+  // Phase 2: which org this invite grants membership into, and the role to
+  // grant — the membership itself is created (and seat-checked) AT ACCEPT, so a
+  // cross-org "join my org" invite needs the recipient's consent first. Both are
+  // nullable + backfilled so the migration is additive/rollback-safe; legacy
+  // password-reset invites simply leave them null.
+  organizationId String?
+  role           GlobalRole?
+  tokenHash      String      @unique
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime    @default(now())
+
+  user         User          @relation("InviteUser", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation("InviteOrg", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([organizationId])
+  @@index([expiresAt])
+}
+
+// Phase 13: the tenant container. A platform superadmin creates orgs and sets
+// each org's seat cap (`maxUsers`) + feature `entitlements`. Existing data is
+// migrated into a default org by the backfill (see prisma/backfill-orgs.ts).
+model Organization {
+  id           String    @id @default(cuid())
+  name         String
+  slug         String    @unique
+  // Seat cap: count(active OrgMembership) must stay <= maxUsers. Required —
+  // there is no implicit "unlimited".
+  maxUsers     Int
+  // Feature-flag map (e.g. { "aiVoiceImport": true, "aiEnhance": true }).
+  // JSON so new flags need no migration; read via a typed accessor in code.
+  entitlements Json      @default("{}")
+  status       OrgStatus @default(active)
+  // Branding (Phase 13): logoPath is the internal storage key; clients get a
+  // computed logoUrl (/api/org/logo/:id). url is the org's own website.
+  logoPath     String?
+  url          String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberships   OrgMembership[]
+  projects      Project[]
+  invites       Invite[]        @relation("InviteOrg")
+  notifications Notification[]  @relation("OrgNotifications")
+}
+
+// Phase 13: a user's membership in an organization. This is where the
+// org-scoped role lives (reusing the GlobalRole enum: admin|member|external) —
+// one identity can hold memberships in multiple orgs with different roles.
+// A row here = one consumed seat in that org.
+model OrgMembership {
+  id             String     @id @default(cuid())
+  organizationId String
+  userId         String
+  role           GlobalRole @default(member)
+  createdAt      DateTime   @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation("OrgMembershipUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+enum ProjectType {
+  scrum // sprint-based: backlog → sprints → board
+  kanban // continuous flow: backlog → kanban board (no sprints)
+}
+
+model Project {
+  id                       String      @id @default(cuid())
+  key                      String      @unique
+  name                     String
+  description              String?
+  // Methodology, chosen at creation and FIXED thereafter. Drives which sections
+  // are available: scrum → board + sprints; kanban → kanban board (no sprints).
+  type                     ProjectType @default(scrum)
+  // Phase 13: home organization. Added NULLABLE in M1, backfilled to the
+  // default org, then made NON-NULL in the cutover step. Restrict on delete:
+  // an org with projects cannot be hard-deleted (we suspend, never wipe).
+  organizationId           String?
+  createdById              String
+  defaultSprintLengthWeeks Int         @default(2)
+  nextStoryNumber          Int         @default(1)
+  nextEpicNumber           Int         @default(1)
+  nextSprintNumber         Int         @default(1)
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  createdBy         User                            @relation("ProjectCreatedBy", fields: [createdById], references: [id])
+  organization      Organization?                   @relation(fields: [organizationId], references: [id], onDelete: Restrict)
+  members           ProjectMember[]
+  epics             Epic[]
+  stories           Story[]
+  sprints           Sprint[]
+  attachments       Attachment[]
+  workflow          WorkflowStatus[]
+  labels            Label[]
+  imports           DocumentImport[]
+  imageImports      ImageImport[]
+  customFields      CustomFieldDefinition[]
+  notificationPrefs ProjectNotificationPreference[] @relation("ProjectNotifPrefs")
+
+  @@index([key])
+  @@index([organizationId])
+}
+
+model WorkflowStatus {
+  id         String         @id @default(cuid())
+  projectId  String
+  coreStatus StoryStatus
+  label      String
+  color      String         @default("#64748B")
+  order      Int
+  category   StatusCategory
+  wipLimit   Int? // Kanban work-in-progress limit for this column; null = no limit
+  isDefault  Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stories Story[] @relation("StoryWorkflowStatus")
+
+  @@index([projectId, coreStatus])
+  @@index([projectId, order])
+}
+
+model ProjectMember {
+  id          String      @id @default(cuid())
+  projectId   String
+  userId      String
+  projectRole ProjectRole
+  createdAt   DateTime    @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model Epic {
+  id          String     @id @default(cuid())
+  projectId   String
+  key         String     @unique
+  title       String
+  description String?
+  color       String     @default("#0052CC")
+  status      EpicStatus @default(open)
+  startDate   DateTime?
+  targetDate  DateTime?
+  createdById String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("EpicCreatedBy", fields: [createdById], references: [id])
+  stories   Story[]
+
+  @@index([projectId])
+}
+
+// Project-scoped label. Reused across the project's tickets (many-to-many via
+// StoryLabel) and rendered as a colored badge on cards/backlog tiles, mirroring
+// how an Epic's color surfaces. Follows the WorkflowStatus precedent: per-project
+// config rows, name unique within the project.
+model Label {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  color     String   @default("#0052CC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stories StoryLabel[]
+
+  @@unique([projectId, name])
+  @@index([projectId])
+}
+
+// Join row: a label attached to a story. Composite PK makes (story,label) unique
+// so the same label can't be attached twice. Both sides cascade — deleting a
+// story or a label cleans up its attachments.
+model StoryLabel {
+  storyId String
+  labelId String
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  label Label @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([storyId, labelId])
+  @@index([labelId])
+}
+
+model Sprint {
+  id          String       @id @default(cuid())
+  projectId   String
+  name        String
+  goal        String?
+  status      SprintStatus @default(planned)
+  startDate   DateTime?
+  endDate     DateTime?
+  completedAt DateTime?
+  createdById String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation("SprintCreatedBy", fields: [createdById], references: [id])
+  stories   Story[]
+
+  @@index([projectId, status])
+}
+
+model Story {
+  id                      String      @id @default(cuid())
+  projectId               String
+  key                     String      @unique
+  title                   String
+  description             String?
+  acceptanceCriteria      String?
+  type                    StoryType   @default(story)
+  status                  StoryStatus @default(todo)
+  statusId                String?
+  priority                Priority    @default(medium)
+  storyPoints             Int?
+  originalEstimateMinutes Int?
+  epicId                  String?
+  sprintId                String?
+  assigneeId              String?
+  reporterId              String
+  parentStoryId           String?
+  sourceDocumentId        String?
+  sourceImageImportId     String?
+  // Free-form provenance marker for non-relational creation paths.
+  // Relational imports (doc/image) use the source*Id FKs above.
+  source                  String?
+  // Optional start + due date. Plain timestamps (no FK), mirroring
+  // Epic.startDate/targetDate and Sprint.startDate/endDate.
+  startDate               DateTime?
+  dueDate                 DateTime?
+  rank                    Int         @default(0)
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
+
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  statusRow         WorkflowStatus?    @relation("StoryWorkflowStatus", fields: [statusId], references: [id], onDelete: SetNull)
+  epic              Epic?              @relation(fields: [epicId], references: [id], onDelete: SetNull)
+  sprint            Sprint?            @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  assignee          User?              @relation("StoryAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  reporter          User               @relation("StoryReporter", fields: [reporterId], references: [id])
+  parent            Story?             @relation("StorySubtasks", fields: [parentStoryId], references: [id], onDelete: SetNull)
+  subtasks          Story[]            @relation("StorySubtasks")
+  sourceDocument    DocumentImport?    @relation("StorySourceImport", fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceImageImport ImageImport?       @relation("StorySourceImageImport", fields: [sourceImageImportId], references: [id], onDelete: SetNull)
+  outgoingLinks     StoryLink[]        @relation("StoryLinkSource")
+  incomingLinks     StoryLink[]        @relation("StoryLinkTarget")
+  activity          ActivityLog[]
+  worklogs          Worklog[]
+  comments          Comment[]
+  attachments       Attachment[]
+  notifications     Notification[]     @relation("StoryNotifications")
+  watchers          StoryWatcher[]     @relation("StoryWatchers")
+  customFieldValues CustomFieldValue[]
+  labels            StoryLabel[]
+
+  @@index([projectId, status])
+  @@index([projectId, sprintId])
+  @@index([projectId, epicId])
+  @@index([parentStoryId])
+  @@index([projectId, startDate])
+  @@index([projectId, dueDate])
+  // Declared to match the index the phase11 migration already creates
+  // (default Prisma name) — subtree delete queries filter on it.
+  @@index([sourceImageImportId])
+}
+
+// Project-scoped custom field definition (the "schema" an admin designs).
+// Follows the WorkflowStatus precedent: per-project config rows, lead+ manage.
+// `options` is a JSON string array, only meaningful for type=select.
+model CustomFieldDefinition {
+  id         String          @id @default(cuid())
+  projectId  String
+  name       String
+  type       CustomFieldType
+  options    Json            @default("[]")
+  isRequired Boolean         @default(false)
+  order      Int             @default(0)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  project Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values  CustomFieldValue[]
+
+  @@unique([projectId, name])
+  @@index([projectId, order])
+}
+
+// One value per (story, field). `value` is JSON so a single column holds
+// text/number/date-string/select-option/boolean; deleting the definition or
+// the story cascades the value away.
+model CustomFieldValue {
+  id        String   @id @default(cuid())
+  storyId   String
+  fieldId   String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  story Story                 @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  field CustomFieldDefinition @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, fieldId])
+  @@index([fieldId])
+}
+
+model StoryLink {
+  id        String   @id @default(cuid())
+  sourceId  String
+  targetId  String
+  type      LinkType
+  createdAt DateTime @default(now())
+
+  source Story @relation("StoryLinkSource", fields: [sourceId], references: [id], onDelete: Cascade)
+  target Story @relation("StoryLinkTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, targetId, type])
+  @@index([sourceId])
+  @@index([targetId])
+}
+
+model Worklog {
+  id               String   @id @default(cuid())
+  storyId          String
+  userId           String
+  timeSpentMinutes Int
+  startedAt        DateTime
+  description      String?
+  createdAt        DateTime @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation("WorklogAuthor", fields: [userId], references: [id])
+
+  @@index([storyId, startedAt])
+  @@index([userId, startedAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  storyId   String
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  story  Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  author User  @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@index([storyId, createdAt])
+}
+
+model ActivityLog {
+  id        String        @id @default(cuid())
+  storyId   String
+  actorId   String
+  event     ActivityEvent
+  fromValue String?
+  toValue   String?
+  meta      Json?
+  createdAt DateTime      @default(now())
+
+  story Story @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  actor User  @relation("ActivityActor", fields: [actorId], references: [id])
+
+  @@index([storyId, createdAt])
+}
+
+model Attachment {
+  id           String         @id @default(cuid())
+  projectId    String
+  storyId      String?
+  uploadedById String
+  filename     String
+  mimetype     String
+  sizeBytes    Int
+  path         String
+  kind         AttachmentKind
+  createdAt    DateTime       @default(now())
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  story       Story?       @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  uploadedBy  User         @relation("AttachmentUploader", fields: [uploadedById], references: [id])
+  imageImport ImageImport? @relation("ImageImportAttachment")
+
+  @@index([projectId])
+  @@index([storyId])
+}
+
+model ImageImport {
+  id           String       @id @default(cuid())
+  projectId    String
+  uploadedById String
+  attachmentId String       @unique
+  status       ImportStatus @default(pending)
+  annotations  Json         @default("[]")
+  draft        Json
+  createdAt    DateTime     @default(now())
+  committedAt  DateTime?
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User       @relation("ImageImportUploader", fields: [uploadedById], references: [id])
+  attachment Attachment @relation("ImageImportAttachment", fields: [attachmentId], references: [id], onDelete: Cascade)
+  stories    Story[]    @relation("StorySourceImageImport")
+
+  @@index([projectId])
+  @@index([uploadedById])
+}
+
+model DocumentImport {
+  id               String       @id @default(cuid())
+  projectId        String
+  uploadedById     String
+  status           ImportStatus @default(pending)
+  draftPayload     Json
+  originalFilename String
+  createdAt        DateTime     @default(now())
+  committedAt      DateTime?
+
+  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploadedBy User    @relation("ImportUploader", fields: [uploadedById], references: [id])
+  stories    Story[] @relation("StorySourceImport")
+
+  @@index([projectId])
+  @@index([uploadedById])
+}
+
+model Notification {
+  id             String           @id @default(cuid())
+  userId         String
+  // Phase 2: the org this notification belongs to, so the bell can filter
+  // per-org and a cross-org click can switch context before deep-linking.
+  // Nullable: legacy rows predate the column and are treated as "all orgs";
+  // org_invite is stamped with the INVITING org even though the recipient is
+  // not a member of it yet.
+  organizationId String?
+  type           NotificationType
+  title          String
+  body           String?
+  storyId        String?
+  storyKey       String?
+  read           Boolean          @default(false)
+  createdAt      DateTime         @default(now())
+
+  user         User          @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  story        Story?        @relation("StoryNotifications", fields: [storyId], references: [id], onDelete: Cascade)
+  organization Organization? @relation("OrgNotifications", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+  @@index([storyId])
+  @@index([organizationId])
+}
+
+// Per-user, per-type, per-channel notification toggle — the "grid" on the
+// profile page. A MISSING row means "use the default": in-app is ON for every
+// type; email defaults ON only for personal events (assigned / made reporter /
+// mentioned) and the weekly digest, and OFF for watcher-fanout events. A
+// stored row is an explicit user choice and always wins — see
+// defaultEnabled() in notificationService.
+model NotificationPreference {
+  id      String              @id @default(cuid())
+  userId  String
+  type    NotificationType
+  channel NotificationChannel
+  enabled Boolean             @default(true)
+
+  user User @relation("NotificationPrefUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, channel])
+  @@index([userId])
+}
+
+// Explicit "watch this story" join. Reporter + assignee are auto-added as
+// watchers so they receive every update without clicking the eye; everyone
+// else opts in manually. Dispatch fans every story notification out to this
+// set, then trims it per person via NotificationPreference.
+model StoryWatcher {
+  id        String   @id @default(cuid())
+  storyId   String
+  userId    String
+  createdAt DateTime @default(now())
+
+  story Story @relation("StoryWatchers", fields: [storyId], references: [id], onDelete: Cascade)
+  user  User  @relation("StoryWatcherUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([storyId, userId])
+  @@index([userId])
+}
+
+// ── Project-scoped EMAIL notification preferences (Phase 14) ───────────────
+// Per-(project, user, event) email opt-in, editable by a project lead (for any
+// member) or the user themselves from Project Settings. Layered ON TOP of the
+// personal NotificationPreference grid with UNION semantics, resolved once per
+// event so a user is never emailed twice:
+//   emailed  ⇔  personalGridAllows(email)  OR  projectOptIn(event)
+// This row can only ADD an email — project ON beats personal OFF (a lead can
+// opt a teammate in); project OFF can NEVER beat personal ON (it can't silence
+// a user's own choice). Scope: status_changed / ticket_completed only reach
+// users tied to the story (watcher = assignee/reporter/manual); sprint_completed
+// fans out to project opt-ins (no watcher concept for a sprint). EMAIL ONLY —
+// in-app stays governed entirely by the personal grid.
+enum ProjectNotificationEvent {
+  status_changed
+  ticket_completed
+  sprint_completed
+}
+
+model ProjectNotificationPreference {
+  id           String                   @id @default(cuid())
+  projectId    String
+  userId       String
+  event        ProjectNotificationEvent
+  emailEnabled Boolean                  @default(false)
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+
+  project Project @relation("ProjectNotifPrefs", fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation("ProjectNotifPrefUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId, event])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// Append-only idempotency + audit ledger for the emails the project-notification
+// layer sends. The UNIQUE dedupeKey is the HARD guarantee that one event mails a
+// given user at most once (belt to the structural per-user-once inside
+// deliver()): a second attempt for the same key collides on insert and is
+// skipped. It is also the audit trail that proves no event was silently dropped.
+// Deliberately scalar — no FK relations: a decoupled
+// ledger, not domain data; rows intentionally outlive the story/sprint/user they
+// reference so the "did we already send?" answer survives deletes.
+model EmailDeliveryLog {
+  id        String                   @id @default(cuid())
+  userId    String
+  projectId String?
+  event     ProjectNotificationEvent
+  storyId   String?
+  sprintId  String?
+  dedupeKey String                   @unique
+  sentAt    DateTime                 @default(now())
+
+  @@index([userId, sentAt])
+  @@index([projectId])
+}

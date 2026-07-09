@@ -1,0 +1,13 @@
+node_modules
+npm-debug.log
+.git
+.gitignore
+.dockerignore
+Dockerfile
+logs
+dist
+*.log
+*.env
+deploy_key
+deploy_key.pub
+known_hosts

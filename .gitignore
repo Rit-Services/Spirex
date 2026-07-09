@@ -1,0 +1,36 @@
+# deps
+node_modules/
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.test
+
+# builds
+dist/
+build/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# local AI-assistant config (never publish)
+.qwen/
+
+# prisma
+server/prisma/*.db
+
+# attachments (phase 8 uploads)
+server/uploads/
+server/uploads-test/
+claudeCredentials/
+
+# LinkedIn posts
+LinkedInPost/

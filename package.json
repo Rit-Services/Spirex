@@ -1,0 +1,26 @@
+{
+  "name": "spirex",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Open-source, self-hostable Jira alternative for small teams",
+  "license": "AGPL-3.0-only",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev:server": "npm --workspace server run dev",
+    "dev:client": "npm --workspace client run dev",
+    "seed": "npm --workspace server run seed",
+    "migrate:deploy": "npm --workspace server run migrate:deploy",
+    "migrate:dev": "npm --workspace server run migrate:dev",
+    "test:e2e": "npm --workspace client run test:e2e:ci",
+    "test:e2e:headed": "npm --workspace client run test:e2e:headed"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "openid-client": "^6.8.4"
+  }
+}

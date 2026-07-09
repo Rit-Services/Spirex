@@ -1,0 +1,269 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * SPIREX — Obsidian Studio theme.
+ * Typography : IBM Plex Sans + IBM Plex Mono
+ * Primary    : Electric blue  #0052CC (light) / #4f8fff (dark)
+ * Surfaces   : Deep obsidian dark / crisp white light
+ * Texture    : Micro dot-grid on the workspace canvas
+ */
+
+@layer base {
+  :root {
+    /* Tells the browser to theme NATIVE controls — the <input type="date">
+       calendar icon + its drop-down popup, number spinners, scrollbar gutters
+       — to match. Without this they render in the OS default (black icon on a
+       white popup) and read as broken in dark mode. */
+    color-scheme: light;
+    --background:       210 18% 97%;
+    --foreground:       222 39% 10%;
+    --card:             0 0% 100%;
+    --card-foreground:  222 39% 10%;
+
+    --primary:          214 100% 40%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary:        214 32% 91%;
+    --secondary-foreground: 214 100% 28%;
+
+    --muted:            210 18% 94%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent:           214 89% 95%;
+    --accent-foreground: 214 100% 28%;
+
+    --destructive:      0 72% 47%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border:   214 14% 90%;
+    --input:    214 14% 88%;
+    --ring:     214 100% 40%;
+    --radius:   0.5rem;
+
+    --priority-critical: 0 75% 45%;
+    --priority-high:     16 90% 50%;
+    --priority-medium:   40 92% 45%;
+    --priority-low:      210 11% 55%;
+
+    --shadow-color: 214 30% 20%;
+    --dot:          214 18% 86%;
+
+    --glow-primary: 0 0 0 1px hsl(var(--primary) / 0.12),
+                    0 4px 24px -2px hsl(var(--primary) / 0.18);
+    --glow-strong:  0 0 0 1px hsl(var(--primary) / 0.20),
+                    0 0 32px hsl(var(--primary) / 0.22),
+                    0 4px 24px -2px hsl(var(--primary) / 0.28);
+  }
+
+  .dark {
+    color-scheme: dark;
+    --background:      224 16% 10%;
+    --foreground:      210 18% 95%;
+    --card:            224 14% 14%;
+    --card-foreground: 210 18% 95%;
+
+    --primary:          214 100% 64%;
+    --primary-foreground: 224 16% 10%;
+
+    --secondary:         224 12% 20%;
+    --secondary-foreground: 210 18% 95%;
+
+    --muted:            224 12% 18%;
+    --muted-foreground: 215 14% 62%;
+
+    --accent:           214 42% 22%;
+    --accent-foreground: 210 18% 95%;
+
+    --destructive:      0 65% 52%;
+    --destructive-foreground: 210 18% 95%;
+
+    --border: 224 12% 21%;
+    --input:  224 12% 19%;
+    --ring:   214 100% 64%;
+
+    --priority-critical: 0 75% 55%;
+    --priority-high:     16 90% 58%;
+    --priority-medium:   40 92% 55%;
+    --priority-low:      215 14% 62%;
+
+    --shadow-color: 224 20% 4%;
+    --dot:          224 10% 18%;
+
+    --glow-primary: 0 0 0 1px hsl(var(--primary) / 0.16),
+                    0 4px 28px -2px hsl(var(--primary) / 0.28);
+    --glow-strong:  0 0 0 1px hsl(var(--primary) / 0.24),
+                    0 0 36px hsl(var(--primary) / 0.30),
+                    0 8px 32px -4px hsl(var(--primary) / 0.40);
+  }
+
+  * { @apply border-border; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    font-feature-settings: 'rlig' 1, 'calt' 1, 'ss01' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* No translucent flash overlay when clicking/tapping controls. */
+    -webkit-tap-highlight-color: transparent;
+    background-image: radial-gradient(hsl(var(--dot)) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  ::-webkit-scrollbar        { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  { @apply rounded-full bg-border; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/25; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UTILITY LAYER — glass surfaces, gradient text, shimmer, etc.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@layer utilities {
+
+  /* Glassmorphism surface */
+  .glass {
+    background: hsl(var(--card) / 0.65);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  }
+
+  /* Gradient text — primary → purple */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, #a78bfa 60%, #c084fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Shimmer skeleton */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      hsl(var(--muted)) 0%,
+      hsl(var(--muted) / 0.45) 50%,
+      hsl(var(--muted)) 100%
+    );
+    background-size: 200% auto;
+    animation: shimmer 2.2s linear infinite;
+  }
+
+  /* Page entrance — one-shot slide up */
+  .enter {
+    animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .enter-1 { animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.06s  both; }
+  .enter-2 { animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.12s  both; }
+  .enter-3 { animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.18s  both; }
+  .enter-4 { animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) 0.24s  both; }
+
+  /* Floating bob — for decorative icons */
+  .float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  /* Pulsing glow ring — for logo/badge */
+  .glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   KEYFRAMES
+   ═══════════════════════════════════════════════════════════════════════════ */
+@keyframes shimmer {
+  from { background-position: -200% center; }
+  to   { background-position:  200% center; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0);     }
+  50%       { transform: translateY(-9px); }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 12px hsl(var(--primary) / 0.22), 0 0 2px hsl(var(--primary) / 0.45); }
+  50%       { box-shadow: 0 0 32px hsl(var(--primary) / 0.42), 0 0 4px hsl(var(--primary) / 0.70); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scanLine {
+  from { transform: translateY(-100%); }
+  to   { transform: translateY(100vh); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PREMIUM APP-LEVEL DETAILS
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Keyboard focus indicator.
+   Kept inside @layer base ON PURPOSE: unlayered rules outrank Tailwind's
+   utilities layer, which would force this ring back onto elements that
+   deliberately opt out via `outline-none` (the command-bar input, dropdown
+   items, etc.) — that was the unwanted "highlight while typing / on the menu".
+   Layered here, those component utilities win again, while elements with no
+   focus styling of their own still get a clean, subtle outline for a11y. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.6);
+    outline-offset: 2px;
+  }
+}
+
+/* Sidebar active-item left glow line */
+.nav-active-glow {
+  box-shadow: inset 2px 0 0 0 hsl(var(--primary)),
+              inset 4px 0 12px -2px hsl(var(--primary) / 0.25);
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px -8px hsl(var(--shadow-color) / 0.16),
+              0 4px 8px -4px hsl(var(--shadow-color) / 0.10);
+}
+
+/* Gradient border on hover (uses pseudo-element) */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.5), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.gradient-border:hover::before {
+  opacity: 1;
+}
