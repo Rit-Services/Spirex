@@ -119,7 +119,7 @@ export const inviteService = {
     const { inviteUrl, expiresAt } = await this.issueInvite(userId, { organizationId, role: input.role });
 
     // Existing accounts also get an in-app notification (the bell) — they're
-    // already logged into RitJira somewhere, so an email alone is easy to miss.
+    // already logged into SPIREX somewhere, so an email alone is easy to miss.
     // Brand-new accounts have no in-app session yet, so email is their only channel.
     if (mode === 'join_org') {
       await notificationModel

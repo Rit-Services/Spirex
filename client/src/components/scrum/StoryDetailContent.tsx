@@ -84,7 +84,7 @@ import { type Priority, type StoryStatus, type StoryType } from '@/types/scrum';
 export type StoryDetailMode = 'drawer' | 'page';
 
 // Drawer width is user-resizable (drag the left edge) and persisted per browser.
-const DRAWER_WIDTH_KEY = 'ritjira.storyDrawerWidth';
+const DRAWER_WIDTH_KEY = 'spirex.storyDrawerWidth';
 const DRAWER_MIN_WIDTH = 420;
 const DRAWER_DEFAULT_WIDTH = 576; // matches the former `max-w-xl`
 

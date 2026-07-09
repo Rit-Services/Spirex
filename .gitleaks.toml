@@ -25,7 +25,7 @@ description = "gitignored-or-generated paths, never published"
 # Documentation placeholders only — never allowlist a whole docs file; it must
 # stay scanned so a REAL key pasted into an example still trips the gate.
 regexes = [
-  '''rjk_YOUR_KEY_HERE''',
+  '''(rjk|spx)_YOUR_KEY_HERE''',
 ]
 paths = [
   '''node_modules/''',

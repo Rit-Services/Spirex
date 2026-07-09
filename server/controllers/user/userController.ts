@@ -108,7 +108,7 @@ export const userController = {
   },
 
   /**
-   * Admin: check whether an email already has a RitJira account, and whether
+   * Admin: check whether an email already has a SPIREX account, and whether
    * they're already in this org. Powers the invite dialog's live "create new vs
    * invite existing" branching.
    */

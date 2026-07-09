@@ -301,7 +301,7 @@ export const jiraClient = {
   /**
    * Fetch a board's column layout — the ordered columns (To Do / In Progress /
    * Done / custom) and which JIRA status ids map into each. This is the source
-   * of truth for recreating the project's workflow in RitJira.
+   * of truth for recreating the project's workflow in SPIREX.
    */
   async getBoardConfiguration(creds: JiraCredentials, boardId: number): Promise<JiraBoardConfiguration> {
     return jiraFetch<JiraBoardConfiguration>(creds, `/rest/agile/1.0/board/${boardId}/configuration`);

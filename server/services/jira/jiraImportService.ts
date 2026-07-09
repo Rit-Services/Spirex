@@ -140,7 +140,7 @@ const TICKETS_PLAN: Array<{ phase: ImportPhase; weight: number }> = [
 /**
  * A workflow column we plan to create from a JIRA board, before it's persisted.
  * Shared by the preview (display) and the real import (creation) so both agree
- * exactly on how JIRA columns map to RitJira core statuses.
+ * exactly on how JIRA columns map to SPIREX core statuses.
  */
 interface PlannedColumn {
   name: string;
@@ -149,7 +149,7 @@ interface PlannedColumn {
   statusNames: string[];
 }
 
-/** Pure mapping: JIRA board columns → planned RitJira workflow columns. */
+/** Pure mapping: JIRA board columns → planned SPIREX workflow columns. */
 function planWorkflowColumns(
   columns: JiraBoardColumn[],
   statusById: Map<string, JiraProjectStatusInfo>,
@@ -170,7 +170,7 @@ function planWorkflowColumns(
 }
 
 /**
- * Resolves a JIRA status (name + category) to a RitJira core status and the
+ * Resolves a JIRA status (name + category) to a SPIREX core status and the
  * workflow column (statusId) a story should land in. Built either from an
  * imported JIRA board (full-project import) or from an existing project's own
  * workflow rows (ticket import into an existing project).
@@ -191,7 +191,7 @@ interface WorkflowResolution {
 export interface ImportTicketsOptions {
   creds: JiraCredentials;
   jiraProjectKey: string;
-  targetProjectId: string;   // existing RitJira project
+  targetProjectId: string;   // existing SPIREX project
   actorId: string;
   /** Optional: receive weighted progress events as the import runs. */
   onProgress?: ProgressCallback;
@@ -216,12 +216,12 @@ export interface ImportPreviewResult {
   /** Total files attached across all non-epic issues — all will be imported. */
   attachmentCount: number;
   unmatchedUsers: Array<{ email: string; displayName: string }>;
-  /** People found in the JIRA project who DO match a RitJira user by email —
+  /** People found in the JIRA project who DO match a SPIREX user by email —
    *  these will be linked on their issues and added to the project as members. */
   matchedUsers: Array<{ email: string; displayName: string }>;
   /** Debug: EVERY person found in JIRA (issue assignees/reporters + assignable
    *  roster) with the email JIRA actually returned (often null on Cloud) and
-   *  whether it matched a RitJira account. */
+   *  whether it matched a SPIREX account. */
   peopleFound: Array<{
     displayName: string;
     email: string | null;
@@ -244,11 +244,11 @@ export interface ImportPreviewResult {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** How a JIRA person was resolved to a RitJira user — surfaced for transparency. */
+/** How a JIRA person was resolved to a SPIREX user — surfaced for transparency. */
 type MatchMethod = 'email' | 'name' | null;
 
 interface UserMatcher {
-  /** Resolve to a RitJira user id, trying email first then display name. */
+  /** Resolve to a SPIREX user id, trying email first then display name. */
   resolve(email: string | null | undefined, displayName: string | null | undefined): string | null;
   /** Same, but also reports which signal matched (for the debug preview). */
   resolveWithMethod(
@@ -258,10 +258,10 @@ interface UserMatcher {
 }
 
 /**
- * Load every RitJira user once and build in-memory lookup maps:
+ * Load every SPIREX user once and build in-memory lookup maps:
  *   - by email (lower-cased) — the strong, unambiguous signal.
  *   - by display name (lower-cased) — the fuzzy fallback for when JIRA hides
- *     emails. A name shared by two RitJira users is marked AMBIGUOUS (null) and
+ *     emails. A name shared by two SPIREX users is marked AMBIGUOUS (null) and
  *     never matched, so we never assign issues to the wrong person.
  * Doing this once avoids a DB round-trip per issue and keeps matching consistent.
  */
@@ -275,7 +275,7 @@ async function buildUserMatcher(): Promise<UserMatcher> {
   });
 
   const byEmail = new Map<string, string>();
-  // value `null` ⇒ the name is ambiguous (≥2 RitJira users) ⇒ don't match.
+  // value `null` ⇒ the name is ambiguous (≥2 SPIREX users) ⇒ don't match.
   const byName = new Map<string, string | null>();
 
   for (const u of users) {
@@ -398,7 +398,7 @@ async function ensureProjectMembers(
 }
 
 /**
- * Recreate a JIRA board's workflow as RitJira WorkflowStatus rows. Reads the
+ * Recreate a JIRA board's workflow as SPIREX WorkflowStatus rows. Reads the
  * first board's column configuration (the ordered columns the user sees in
  * JIRA) and the project's statuses, then builds one column per board column,
  * pinned to a core enum value. Returns a resolver that maps each JIRA status to
@@ -995,7 +995,7 @@ async function importIssues(
   const storyMap = new Map<string, StoryMeta>();
   // sub-tasks to process after parents exist
   const subtasks: typeof issues = [];
-  // Every RitJira user we touch as assignee/reporter — added as project members.
+  // Every SPIREX user we touch as assignee/reporter — added as project members.
   const matchedUserIds = new Set<string>();
 
   // ── Issue-number preservation ────────────────────────────────────────────
@@ -1267,7 +1267,7 @@ export const jiraImportService = {
     const reporter = makeReporter(opts.onProgress, PROJECT_PLAN);
 
     // 1. Keep the original JIRA project key (e.g. "KW", "KWDC") when it's free.
-    //    Only if it collides with an existing RitJira project do we mint a new
+    //    Only if it collides with an existing SPIREX project do we mint a new
     //    one — suffixed off the JIRA key first ("KW" → "KW2"), falling back to a
     //    name-derived key if the JIRA key is somehow empty.
     reporter.startPhase('setup', 1, 'Creating project…');

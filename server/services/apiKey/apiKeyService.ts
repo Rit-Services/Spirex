@@ -8,9 +8,9 @@ import { ErrorResponse } from '../../utils/errorResponse.js';
 import logger from '../../utils/logger.js';
 import type { AuthUser } from '../../middlewares/authHandler.js';
 
-const KEY_PREFIX = 'rjk_';
+const KEY_PREFIX = 'spx_';
 // Length of the random portion that lives inside the indexed prefix column.
-// Together with KEY_PREFIX this yields prefix = "rjk_xxxxxxxx" — 12 chars.
+// Together with KEY_PREFIX this yields prefix = "spx_xxxxxxxx" — 12 chars.
 const PREFIX_RAND_LEN = 8;
 // Total random bytes in the secret; base64url-encoded → ~43 chars.
 const KEY_RANDOM_BYTES = 32;
@@ -77,7 +77,7 @@ export const apiKeyService = {
   },
 
   /**
-   * Resolve a raw `rjk_…` key to an AuthUser. Returns null when the key is
+   * Resolve a raw `spx_…` key to an AuthUser. Returns null when the key is
    * malformed, unknown, revoked, expired, or owned by a disabled user.
    * Touches lastUsedAt as a best-effort side-effect.
    */

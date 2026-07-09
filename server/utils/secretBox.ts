@@ -22,7 +22,7 @@ const IV_BYTES = 12; // 96-bit nonce — the GCM standard
 const KEY_BYTES = 32; // AES-256
 // Fixed salt: the input secret is already high-entropy, so a per-app constant
 // salt is sufficient to domain-separate this key from any other scrypt use.
-const KEY_SALT = 'ritjira.secretbox.v1';
+const KEY_SALT = 'spirex.secretbox.v1';
 const VERSION = 'v1';
 
 let cachedKey: Buffer | null = null;

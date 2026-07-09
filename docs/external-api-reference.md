@@ -26,7 +26,7 @@ idempotency, security checklist — see the
 4. Give it a name (e.g. `reporting-bot`), optionally pick an expiry date, and
    click **Create key**.
 5. **Copy the key immediately.** It is shown ONCE. After you close the dialog,
-   only its prefix (`rjk_xxxxxxxx…`) is ever visible again. If you lose it,
+   only its prefix (`spx_xxxxxxxx…`) is ever visible again. If you lose it,
    revoke it and create a new one.
 
 Every action you perform with this key is attributed to the user who created
@@ -39,7 +39,7 @@ it — for audit, activity log, and permission purposes.
 Send the key in the standard `Authorization` header using the `Bearer` scheme:
 
 ```
-Authorization: Bearer rjk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer spx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 No cookies, no other headers needed. Use HTTPS in any non-local environment.
@@ -116,7 +116,7 @@ GET /api/auth/me
 **curl**
 
 ```bash
-curl -H "Authorization: Bearer rjk_YOUR_KEY_HERE" \
+curl -H "Authorization: Bearer spx_YOUR_KEY_HERE" \
   https://your-host/api/auth/me
 ```
 
@@ -194,12 +194,12 @@ This shows the full flow — discover the user ID via `/auth/me`, then use it as
 
 ```bash
 # 1) Who am I? — grab the id field from the response.
-curl -H "Authorization: Bearer rjk_YOUR_KEY_HERE" \
+curl -H "Authorization: Bearer spx_YOUR_KEY_HERE" \
   https://your-host/api/auth/me
 
 # 2) My stories in this project that are in progress.
 curl -G \
-  -H "Authorization: Bearer rjk_YOUR_KEY_HERE" \
+  -H "Authorization: Bearer spx_YOUR_KEY_HERE" \
   --data-urlencode "projectId=PROJECT_ID" \
   --data-urlencode "assigneeId=USER_ID_FROM_STEP_1" \
   --data-urlencode "status=in_progress" \
@@ -402,7 +402,7 @@ when moving a story to a custom column (§12 below).
 
 ## 10. Writing — permission model (read this first)
 
-Authentication is identical to reading: send `Authorization: Bearer rjk_xxx…`
+Authentication is identical to reading: send `Authorization: Bearer spx_xxx…`
 on every request (§1–§2 above). Need to know which user your key represents
 (e.g. to set yourself as assignee)? Call `GET /api/auth/me` (§3 above).
 
@@ -458,7 +458,7 @@ Valid values: `backlog`, `todo`, `in_progress`, `in_review`, `qa`, `done`.
 
 ```bash
 curl -X PATCH \
-  -H "Authorization: Bearer rjk_YOUR_KEY_HERE" \
+  -H "Authorization: Bearer spx_YOUR_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"status":"in_progress"}' \
   https://your-host/api/stories/STORY_ID/status
@@ -563,7 +563,7 @@ by the `story:assign` permission (also held by `developer`+ and org admins).
 
 ```bash
 curl -X PATCH \
-  -H "Authorization: Bearer rjk_YOUR_KEY_HERE" \
+  -H "Authorization: Bearer spx_YOUR_KEY_HERE" \
   -H "Content-Type: application/json" \
   -d '{"priority":"high","assigneeId":"ckuser..."}' \
   https://your-host/api/stories/STORY_ID

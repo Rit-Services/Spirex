@@ -9,7 +9,7 @@
  * ONE-LINE change — do NOT hardcode the brand name in templates again.
  *
  * NOTE: this is the *brand*, not the Jira integration or internal identifiers.
- * Things like the auth cookie name (`ritjira_token`) are stable code
+ * Things like the auth cookie name (`spirex_token`) are stable code
  * identifiers, not user-facing brand, and intentionally stay as-is.
  */
 export const BRAND = {

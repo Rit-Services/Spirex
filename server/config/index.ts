@@ -18,7 +18,7 @@ export const config = {
   jwt: {
     secret: process.env.JWT_SECRET || 'dev_only_insecure_secret',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    cookieName: 'ritjira_token',
+    cookieName: 'spirex_token',
   },
   encryption: {
     // Secret used to derive the AES-256-GCM key that encrypts stored

@@ -13,9 +13,7 @@
     "dev:client": "npm --workspace client run dev",
     "seed": "npm --workspace server run seed",
     "migrate:deploy": "npm --workspace server run migrate:deploy",
-    "migrate:dev": "npm --workspace server run migrate:dev",
-    "test:e2e": "npm --workspace client run test:e2e:ci",
-    "test:e2e:headed": "npm --workspace client run test:e2e:headed"
+    "migrate:dev": "npm --workspace server run migrate:dev"
   },
   "engines": {
     "node": ">=20"

@@ -116,7 +116,7 @@ export const organizationController = {
     res.status(201).json({ user: userService.publicProfile(user) });
   },
 
-  // Superadmin: check whether an email already has a RitJira account and whether
+  // Superadmin: check whether an email already has a SPIREX account and whether
   // they're already in THIS org. Powers the dialog's "create new vs invite
   // existing" branching — same shape as the tenant-admin lookup.
   async lookupMember(req: Request, res: Response) {

@@ -12,7 +12,7 @@
  * A fresh tab starts empty and defaults to the user's first org (resolved
  * server-side) until the switcher pins a selection.
  */
-const ACTIVE_ORG_KEY = 'ritjira.activeOrgId';
+const ACTIVE_ORG_KEY = 'spirex.activeOrgId';
 
 export function getActiveOrgId(): string | null {
   try {

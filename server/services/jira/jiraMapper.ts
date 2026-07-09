@@ -39,7 +39,7 @@ export function mapStoryStatus(jiraStatusCategory: string, jiraStatusName: strin
 // ── Workflow column mapping ───────────────────────────────────────────────────
 
 /**
- * Map a JIRA status category key to RitJira's three-bucket StatusCategory.
+ * Map a JIRA status category key to SPIREX's three-bucket StatusCategory.
  * JIRA uses: `new` (To Do), `indeterminate` (In Progress), `done`.
  */
 export function mapJiraStatusCategory(key: string | null | undefined): StatusCategory {

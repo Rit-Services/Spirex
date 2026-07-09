@@ -12,7 +12,7 @@ import logger from '../../utils/logger.js';
  * SSO sign-in (Phase 1: Microsoft Entra ID, OIDC authorization-code + PKCE).
  *
  * Design rules (see AuthIdentity in schema.prisma):
- *  - SSO never creates users. RitJira is invite-only; an SSO callback that
+ *  - SSO never creates users. SPIREX is invite-only; an SSO callback that
  *    matches no existing account ends in `not_invited`, full stop.
  *  - Identity lookup is by the immutable provider subject (Entra `oid`),
  *    never by email. Email is only consulted ONCE — at first sign-in, to

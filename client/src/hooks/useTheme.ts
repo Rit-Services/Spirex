@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light';
-const STORAGE_KEY = 'ritjira-theme';
+const STORAGE_KEY = 'spirex-theme';
 
 function getInitial(): Theme {
   if (typeof window === 'undefined') return 'light';

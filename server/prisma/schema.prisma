@@ -214,7 +214,7 @@ model User {
 // later). Lookup is ALWAYS by the immutable provider subject (Entra `oid`) —
 // never by email, which is mutable and, on Microsoft, not always verified.
 // `email` is a display/debug snapshot taken at link time. SSO never creates
-// users (RitJira is invite-only); it only authenticates existing ones, so
+// users (SPIREX is invite-only); it only authenticates existing ones, so
 // passwordHash stays required on User and both sign-in methods coexist.
 model AuthIdentity {
   id             String   @id @default(cuid())

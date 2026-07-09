@@ -15,13 +15,13 @@ import logger from '../../utils/logger.js';
  * land the user somewhere visible, so every error becomes a redirect to the
  * SPA with a machine-readable ?sso_error=<code> the login/profile pages map
  * to friendly copy. Success converges on the exact same outcome as password
- * login: a signed `ritjira_token` cookie.
+ * login: a signed `spirex_token` cookie.
  */
 
 // PKCE verifier + state round-trip between /sso/microsoft and its callback in
 // a short-lived signed cookie (the OAuth dance spans two separate requests).
 // Path-scoped so it never rides along on regular API calls.
-const SSO_STASH_COOKIE = 'ritjira_sso';
+const SSO_STASH_COOKIE = 'spirex_sso';
 const SSO_STASH_TTL_SEC = 600;
 const SSO_COOKIE_OPTS = { ...config.cookie, path: '/api/auth/sso' };
 

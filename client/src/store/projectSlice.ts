@@ -30,8 +30,8 @@ interface ProjectState {
   error: string | null;
 }
 
-const CURRENT_KEY = 'ritjira-current-project';
-const RECENT_KEY = 'ritjira-recent-projects';
+const CURRENT_KEY = 'spirex-current-project';
+const RECENT_KEY = 'spirex-recent-projects';
 const RECENT_LIMIT = 8;
 
 function loadInitialId(): string | null {

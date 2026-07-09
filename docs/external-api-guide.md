@@ -42,7 +42,7 @@ Internalize that and the rest of the API is predictable.
 
 | Primitive            | Where it comes from                | What it controls                          |
 |----------------------|------------------------------------|-------------------------------------------|
-| **API key**          | Profile → API Keys (`rjk_…`)       | *Who* you are (a single user)             |
+| **API key**          | Profile → API Keys (`spx_…`)       | *Who* you are (a single user)             |
 | **Roles**            | org role + per-project role        | *What* you're allowed to do               |
 
 ### 2.1 Bootstrapping at startup
