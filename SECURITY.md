@@ -23,7 +23,7 @@ Instead, report privately via either:
 
 - **GitHub Security Advisories** — the *"Report a vulnerability"* button under
   this repository's **Security** tab (preferred), or
-- **Email** — **security@rit.services**
+- **Email** — **spirex@rit.services**
 
 Please include as much of the following as you can:
 

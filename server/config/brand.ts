@@ -29,7 +29,19 @@ export const BRAND = {
   /** Attribution shown on the login screen + email signature. SPIREX is
    *  open-source, maintained by RIT Services. */
   poweredBy: 'Powered by RIT Services',
-  poweredByUrl: 'https://rit.services',
+  poweredByUrl: 'https://www.rit.services',
+
+  /** The company behind SPIREX, surfaced in the email signature. */
+  company: 'RIT Services',
+  companyUrl: 'https://www.rit.services',
+
+  /** Public contact inbox — shown in transactional emails so people can reach
+   *  us if something is wrong. Self-hosters can point this at their own inbox. */
+  contactEmail: 'spirex@rit.services',
+
+  /** Hosted (free-tier) cloud version of SPIREX — the "don't want to self-host?"
+   *  CTA in emails. Blank this to hide the cloud CTA on a self-hosted build. */
+  cloudUrl: 'https://spirex.rit.services',
 
   /** Primary accent colour (matches the in-app brand). */
   accent: '#4f8fff',

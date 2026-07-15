@@ -2,7 +2,13 @@
 
 **Open-source, self-hostable Jira alternative for small teams.** Scrum & Kanban boards, backlog, sprints, epics, subtasks, custom workflows, time tracking, reports, rich-text issues with attachments, one-click JIRA import, and optional AI drafting.
 
-> _Powered by [RIT Services](https://rit.services)._
+> _An open-source product by **[RIT Services](https://www.rit.services)** — [www.rit.services](https://www.rit.services)._
+
+> ☁️ **Don't want to self-host?** Try the **free hosted version** at
+> **[spirex.rit.services](https://spirex.rit.services)** — the cloud SPIREX, a
+> free-tier Jira alternative, no setup required.
+>
+> 💬 **Questions, or something wrong?** Reach us at **[spirex@rit.services](mailto:spirex@rit.services)**.
 
 ---
 
