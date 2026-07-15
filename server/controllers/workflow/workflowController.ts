@@ -3,25 +3,9 @@
 
 import type { Request, Response } from 'express';
 import { workflowService } from '../../services/workflow/workflowService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type Action, type ProjectRole } from '../../utils/permissions.js';
+import { assertProjectAction } from '../../utils/projectAccess.js';
 import { prisma } from '../../db/prisma.js';
-
-async function assertProjectAction(req: Request, projectId: string, action: Action) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    action,
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
-}
 
 export const workflowController = {
   async listForProject(req: Request, res: Response) {

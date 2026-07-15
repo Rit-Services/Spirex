@@ -8,26 +8,18 @@ import {
   unlinkedUserService,
 } from '../../services/project/projectService.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, PROJECT_ROLE_LEVEL, type ProjectRole } from '../../utils/permissions.js';
+import { PROJECT_ROLE_LEVEL, type ProjectRole } from '../../utils/permissions.js';
+import { assertProjectAction } from '../../utils/projectAccess.js';
 
+// Tenant-scoped access to the project named by `:id`. Delegates to the shared
+// boundary (utils/projectAccess) which 404s a project outside the caller's org
+// BEFORE the role check — closing the cross-tenant IDOR. Returns the hydrated
+// project + membership for the handlers that echo the project back.
 async function ensureProjectAccess(
   req: Request,
   action: 'project:view' | 'project:edit' | 'project:delete' | 'member:manage',
 ) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const project = await projectService.getById(req.params.id);
-  const membership = await projectService.getMembership(project.id, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    action,
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
-  return { project, membership };
+  return assertProjectAction(req, req.params.id, action);
 }
 
 export const projectController = {

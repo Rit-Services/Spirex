@@ -3,24 +3,8 @@
 
 import type { Request, Response } from 'express';
 import { sprintService } from '../../services/sprint/sprintService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type Action, type ProjectRole } from '../../utils/permissions.js';
-
-async function assertProjectAction(req: Request, projectId: string, action: Action) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    action,
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
-}
+import { assertProjectAction } from '../../utils/projectAccess.js';
 
 export const sprintController = {
   async list(req: Request, res: Response) {

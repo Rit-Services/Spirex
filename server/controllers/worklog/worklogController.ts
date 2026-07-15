@@ -4,25 +4,9 @@
 import type { Request, Response } from 'express';
 import { worklogService } from '../../services/worklog/worklogService.js';
 import { storyService } from '../../services/story/storyService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { parseTimeToMinutes, TimeParseError } from '../../utils/timeParser.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type Action, type ProjectRole } from '../../utils/permissions.js';
-
-async function assertProjectAction(req: Request, projectId: string, action: Action) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    action,
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
-}
+import { assertProjectAction, resolveProjectActor } from '../../utils/projectAccess.js';
 
 function toMinutesOrThrow(spec: string): number {
   try {
@@ -64,6 +48,11 @@ export const worklogController = {
 
   async update(req: Request, res: Response) {
     if (!req.user) throw ErrorResponse.unauthorized();
+    // Tenant scope: the worklog's project must live in the caller's active org
+    // (404 otherwise) before the service applies its author-only check.
+    const existing = await worklogService.getById(req.params.id);
+    const story = await storyService.get(existing.storyId);
+    await resolveProjectActor(req, story.projectId);
     const data: { timeSpentMinutes?: number; startedAt?: Date; description?: string | null } = {};
     if (req.body.timeSpent !== undefined) data.timeSpentMinutes = toMinutesOrThrow(req.body.timeSpent);
     if (req.body.startedAt !== undefined)
@@ -75,7 +64,15 @@ export const worklogController = {
 
   async remove(req: Request, res: Response) {
     if (!req.user) throw ErrorResponse.unauthorized();
-    await worklogService.remove(req.params.id, req.user.id, req.orgContext?.role === 'admin');
+    // Resolve the worklog's project and org-scope it (404 if it's in another
+    // org). The admin override is then keyed to the caller's role IN THIS
+    // worklog's org — without the scope, an org admin could delete any other
+    // org's worklogs by guessing ids.
+    const existing = await worklogService.getById(req.params.id);
+    const story = await storyService.get(existing.storyId);
+    const { actor } = await resolveProjectActor(req, story.projectId);
+    const canManageAny = actor.isSuperAdmin === true || actor.orgRole === 'admin';
+    await worklogService.remove(req.params.id, req.user.id, canManageAny);
     res.status(204).end();
   },
 };

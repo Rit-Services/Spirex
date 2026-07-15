@@ -102,3 +102,8 @@ behavior you change.
 
 A maintainer will review as soon as they can. Thanks for helping make SPIREX
 better!
+
+## Roles & who merges
+
+Curious who reviews and merges, or how someone becomes a maintainer? That's all
+written down in [GOVERNANCE.md](./GOVERNANCE.md).

@@ -34,3 +34,6 @@ claudeCredentials/
 
 # LinkedIn posts
 LinkedInPost/
+
+# local private runbooks / notes (never publish)
+*.local.md

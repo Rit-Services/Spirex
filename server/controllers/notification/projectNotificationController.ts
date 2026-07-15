@@ -3,21 +3,16 @@
 
 import type { Request, Response } from 'express';
 import { projectNotificationService } from '../../services/notification/projectNotificationService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type Action, type ProjectRole } from '../../utils/permissions.js';
+import { can, type Action } from '../../utils/permissions.js';
+import { resolveProjectActor } from '../../utils/projectAccess.js';
 
-/** Resolve the actor's permission context within a project (mirrors the pattern
- *  in workflowController). Throws 401 when unauthenticated. */
+/** Resolve the actor's permission context within a project. The shared boundary
+ *  tenant-scopes the project (404 if it's outside the caller's org) before we run
+ *  the per-cell can() checks below. Throws 401 when unauthenticated. */
 async function resolveActor(req: Request, projectId: string) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  return {
-    userId: req.user.id,
-    isSuperAdmin: req.user.isSuperAdmin,
-    orgRole: req.orgContext?.role,
-    projectRole: membership?.projectRole as ProjectRole | undefined,
-  };
+  const { actor } = await resolveProjectActor(req, projectId);
+  return actor;
 }
 
 function assertAllowed(actor: Parameters<typeof can>[0], action: Action) {

@@ -5,7 +5,6 @@ import type { Request, Response } from 'express';
 import { storyService } from '../../services/story/storyService.js';
 import { labelService } from '../../services/label/labelService.js';
 import { sprintService } from '../../services/sprint/sprintService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { activityService } from '../../services/activity/activityService.js';
 import { notificationService } from '../../services/notification/notificationService.js';
 import { claudeRunner } from '../../services/ai/claudeRunner.js';
@@ -13,28 +12,13 @@ import type { StoryEnhanceContext } from '../../services/ai/promptBuilder.js';
 import { tiptapPlainText } from '../../utils/tiptapPlainText.js';
 import { prisma } from '../../db/prisma.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type Action, type ProjectRole } from '../../utils/permissions.js';
+import { assertProjectAction } from '../../utils/projectAccess.js';
 import type { StoryListQuery } from '../../validators/storyValidator.js';
 import type { StoryStatus } from '@prisma/client';
 
 // Core statuses a user can filter the "My issues" widget by — `done` is
 // intentionally absent (completed issues never show in this widget).
 const ASSIGNABLE_FILTER_STATUSES: StoryStatus[] = ['todo', 'in_progress', 'in_review', 'qa'];
-
-async function assertProjectAction(req: Request, projectId: string, action: Action) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    action,
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
-}
 
 /**
  * Attach the viewer's watch state (`isWatching` + `watcherCount`) to a

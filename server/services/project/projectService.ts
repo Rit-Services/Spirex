@@ -86,6 +86,17 @@ export const projectService = {
     return project;
   },
 
+  // Tenant-scoped variant of getById: the project must belong to `organizationId`.
+  // A project in another org 404s exactly like a missing one — no info leak on
+  // whether the id exists elsewhere. This is the load every tenant-facing
+  // by-id access MUST use (via utils/projectAccess.ts) so the org boundary can
+  // never be skipped the way the old raw getById allowed.
+  async getByIdInOrg(id: string, organizationId: string) {
+    const project = await projectModel.findByIdInOrg(id, organizationId);
+    if (!project) throw ErrorResponse.notFound('Project not found');
+    return project;
+  },
+
   async getMembership(projectId: string, userId: string) {
     return projectMemberModel.findForUser(projectId, userId);
   },

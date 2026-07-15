@@ -4,23 +4,13 @@
 import type { Request, Response } from 'express';
 import { reportService } from '../../services/report/reportService.js';
 import { sprintService } from '../../services/sprint/sprintService.js';
-import { projectService } from '../../services/project/projectService.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can, type ProjectRole } from '../../utils/permissions.js';
+import { assertProjectAction } from '../../utils/projectAccess.js';
 
+// Report reads are gated on report:view, tenant-scoped by the shared boundary
+// (a project outside the caller's org 404s before the role check).
 async function assertReadAccess(req: Request, projectId: string) {
-  if (!req.user) throw ErrorResponse.unauthorized();
-  const membership = await projectService.getMembership(projectId, req.user.id);
-  const allowed = can(
-    {
-      userId: req.user.id,
-      isSuperAdmin: req.user.isSuperAdmin,
-      orgRole: req.orgContext?.role,
-      projectRole: membership?.projectRole as ProjectRole | undefined,
-    },
-    'report:view',
-  );
-  if (!allowed) throw ErrorResponse.forbidden();
+  await assertProjectAction(req, projectId, 'report:view');
 }
 
 export const reportController = {

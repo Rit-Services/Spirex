@@ -11,6 +11,16 @@ export const projectModel = {
       include: { members: { include: { user: true } }, createdBy: true },
     }),
 
+  // Tenant-scoped by-id load: resolves a project ONLY when it lives in the given
+  // organization. A cross-org id returns null (→ 404 upstream), so ids can't be
+  // enumerated across tenants. Same include shape as findById so callers get an
+  // identical project payload. See utils/projectAccess.ts for the boundary.
+  findByIdInOrg: (id: string, organizationId: string) =>
+    prisma.project.findFirst({
+      where: { id, organizationId },
+      include: { members: { include: { user: true } }, createdBy: true },
+    }),
+
   findByKey: (key: string) => prisma.project.findUnique({ where: { key } }),
 
   // Projects in ONE org that the user is a member of. Org-scoped so a user who

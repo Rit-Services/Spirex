@@ -31,6 +31,15 @@ async function resolveMentionedMembers(opts: {
 export const commentService = {
   listByStory: (storyId: string) => commentModel.listByStory(storyId),
 
+  // Fetch one comment (with its storyId) or 404. Lets a controller resolve the
+  // comment's story → project → org for the tenant-scope check before an
+  // author/admin-gated edit or delete.
+  async getById(id: string) {
+    const comment = await commentModel.findById(id);
+    if (!comment) throw ErrorResponse.notFound('Comment not found');
+    return comment;
+  },
+
   async create(input: { storyId: string; authorId: string; body: string }) {
     if (!input.body.trim()) throw ErrorResponse.badRequest('Comment body is required');
     const rec = await commentModel.create({

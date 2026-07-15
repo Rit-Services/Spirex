@@ -10,6 +10,15 @@ export const worklogService = {
   listByStory: (storyId: string) => worklogModel.listByStory(storyId),
   sumForStory: (storyId: string) => worklogModel.sumForStory(storyId),
 
+  // Fetch one worklog (with its storyId) or 404. Lets a controller resolve the
+  // worklog's story → project → org for the tenant-scope check before an
+  // author/admin-gated edit or delete.
+  async getById(id: string) {
+    const worklog = await worklogModel.findById(id);
+    if (!worklog) throw ErrorResponse.notFound('Worklog not found');
+    return worklog;
+  },
+
   async create(input: {
     storyId: string;
     userId: string;

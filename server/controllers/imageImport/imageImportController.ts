@@ -4,31 +4,18 @@
 import type { Request, Response } from 'express';
 import { asyncHandler } from '../../middlewares/asyncHandler.js';
 import { ErrorResponse } from '../../utils/errorResponse.js';
-import { can } from '../../utils/permissions.js';
+import { assertProjectAction } from '../../utils/projectAccess.js';
 import { imageImportService } from '../../services/ingest/imageImportService.js';
 import type {
   Annotation,
   CommitImageEdit,
   ImageImportDraft,
 } from '../../services/ingest/imageImportService.js';
-import type { ProjectRole } from '../../utils/permissions.js';
-import { prisma } from '../../db/prisma.js';
 
-function actorFor(req: Request, projectRole?: ProjectRole) {
-  return {
-    userId: req.user!.id,
-    isSuperAdmin: req.user!.isSuperAdmin,
-    orgRole: req.orgContext?.role,
-    projectRole,
-  };
-}
-
-async function getMemberRole(projectId: string, userId: string): Promise<ProjectRole | undefined> {
-  const m = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-  });
-  return m?.projectRole as ProjectRole | undefined;
-}
+// Every gate below routes through assertProjectAction so the target project is
+// tenant-scoped to the caller's active org. A record's projectId in another org
+// 404s before the role check — closing the cross-tenant IDOR that let any org
+// member read/commit image imports into another org's projects by id.
 
 export const createDraft = asyncHandler(async (req: Request, res: Response) => {
   if (!req.file) throw ErrorResponse.badRequest('No image uploaded');
@@ -36,10 +23,7 @@ export const createDraft = asyncHandler(async (req: Request, res: Response) => {
   const projectId = typeof req.body.projectId === 'string' ? req.body.projectId.trim() : '';
   if (!projectId) throw ErrorResponse.badRequest('projectId is required');
 
-  const role = await getMemberRole(projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to import images in this project');
-  }
+  await assertProjectAction(req, projectId, 'import:create');
 
   const result = await imageImportService.createDraft({
     projectId,
@@ -56,10 +40,7 @@ export const getImageImport = asyncHandler(async (req: Request, res: Response) =
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'project:view')) {
-    throw ErrorResponse.forbidden('Not a project member');
-  }
+  await assertProjectAction(req, record.projectId, 'project:view');
 
   res.json(record);
 });
@@ -68,10 +49,7 @@ export const listByProject = asyncHandler(async (req: Request, res: Response) =>
   const projectId = typeof req.query.projectId === 'string' ? req.query.projectId.trim() : '';
   if (!projectId) throw ErrorResponse.badRequest('projectId is required');
 
-  const role = await getMemberRole(projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'project:view')) {
-    throw ErrorResponse.forbidden('Not a project member');
-  }
+  await assertProjectAction(req, projectId, 'project:view');
 
   const rows = await imageImportService.listByProject(projectId);
   res.json(rows);
@@ -81,10 +59,7 @@ export const updateAnnotations = asyncHandler(async (req: Request, res: Response
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to edit image imports in this project');
-  }
+  await assertProjectAction(req, record.projectId, 'import:create');
 
   const annotations = Array.isArray(req.body.annotations)
     ? (req.body.annotations as Annotation[])
@@ -99,10 +74,7 @@ export const updateDraft = asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to edit image imports in this project');
-  }
+  await assertProjectAction(req, record.projectId, 'import:create');
 
   const patch = (req.body.draft ?? {}) as Partial<ImageImportDraft>;
   const updated = await imageImportService.updateDraft(id, patch);
@@ -113,10 +85,7 @@ export const commitImageImport = asyncHandler(async (req: Request, res: Response
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to commit image imports in this project');
-  }
+  await assertProjectAction(req, record.projectId, 'import:create');
 
   const edit = (req.body.edit ?? {}) as CommitImageEdit;
   const story = await imageImportService.commit(id, edit, req.user!.id);
@@ -127,10 +96,7 @@ export const generateDraft = asyncHandler(async (req: Request, res: Response) =>
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to generate stories in this project');
-  }
+  await assertProjectAction(req, record.projectId, 'import:create');
 
   const draft = await imageImportService.generateDraft(id);
   res.json({ draft });
@@ -140,10 +106,7 @@ export const discardImageImport = asyncHandler(async (req: Request, res: Respons
   const { id } = req.params;
   const record = await imageImportService.getById(id);
 
-  const role = await getMemberRole(record.projectId, req.user!.id);
-  if (!can(actorFor(req, role), 'import:create')) {
-    throw ErrorResponse.forbidden('Not allowed to discard image imports in this project');
-  }
+  await assertProjectAction(req, record.projectId, 'import:create');
 
   await imageImportService.discard(id);
   res.json({ ok: true });

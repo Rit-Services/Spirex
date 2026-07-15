@@ -1,0 +1,16 @@
+# ============================================================================
+# CODEOWNERS — who is RESPONSIBLE for reviewing changes to SPIREX
+# ----------------------------------------------------------------------------
+# Every pull request that touches a matching path automatically requests a
+# review from the owner(s) listed here. Combined with the branch-protection
+# rule "Require review from Code Owners", a PR CANNOT be merged until one of
+# these owners approves it. This file is the enforcement behind the word
+# "maintainer" in CONTRIBUTING.md.
+#
+# Syntax:  <path pattern>   <owner> [<owner> ...]
+# Owners are GitHub usernames (@user) or org teams (@Rit-Services/team-name).
+# The LAST matching pattern wins — put general rules first, specific ones last.
+# ============================================================================
+
+# Default owner for everything in the repo.
+*                       @Hassan-RIT  @Rit-Services/Rit
