@@ -82,7 +82,10 @@ function emailHeader(): string {
 /** Footer — the per-email "why you got this" note plus the SPIREX e-signature. */
 function emailSignature(footerNote: string): string {
   const appUrl = config.clientUrl;
-  const prettyUrl = appUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const stripScheme = (u: string) => u.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  const prettyUrl = stripScheme(appUrl);
+  const prettyCompanyUrl = stripScheme(BRAND.companyUrl);
+  const prettyCloudUrl = stripScheme(BRAND.cloudUrl);
   return `
     <div style="padding:18px 24px;border-top:1px solid #eef2f7;background:#f8fafc">
       ${
@@ -100,6 +103,18 @@ function emailSignature(footerNote: string): string {
           </td>
         </tr>
       </table>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;line-height:1.7">
+        ${BRAND.name} is an open-source project by
+        <a href="${BRAND.companyUrl}" style="color:${ACCENT};text-decoration:none">${BRAND.company}</a>
+        · <a href="${BRAND.companyUrl}" style="color:${ACCENT};text-decoration:none">${prettyCompanyUrl}</a><br />
+        Something wrong or a question? Reach us at
+        <a href="mailto:${BRAND.contactEmail}" style="color:${ACCENT};text-decoration:none">${BRAND.contactEmail}</a>${
+          BRAND.cloudUrl
+            ? `<br />Don't want to self-host? Try the free hosted version at
+        <a href="${BRAND.cloudUrl}" style="color:${ACCENT};text-decoration:none">${prettyCloudUrl}</a>`
+            : ''
+        }
+      </div>
     </div>`;
 }
 

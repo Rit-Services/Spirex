@@ -34,7 +34,7 @@ export const BRAND = {
   /** Attribution shown on the login screen. SPIREX is open-source, maintained
    *  by RIT Services. */
   poweredBy: 'Powered by RIT Services',
-  poweredByUrl: 'https://rit.services',
+  poweredByUrl: 'https://www.rit.services',
 
   /** SPDX short id of the license SPIREX ships under. */
   license: 'AGPL-3.0',
@@ -46,7 +46,7 @@ export const BRAND = {
    * VITE_SOURCE_URL to your own fork — the default only points at the canonical
    * upstream repo.
    */
-  sourceUrl: import.meta.env.VITE_SOURCE_URL || 'https://github.com/your-org/spirex',
+  sourceUrl: import.meta.env.VITE_SOURCE_URL || 'https://github.com/Rit-Services/Spirex',
 
   /**
    * The acronym, expanded. Each entry highlights its leading letter(s) so the
