@@ -34,7 +34,7 @@ docker compose down -v            # stop + wipe data volumes
 SPIREX_VERSION=0.2.0
 ```
 
-Available tags: `0.2.0` (exact), `0.2` / `0` (tracks), `latest` (newest stable), `edge` (every commit on `main`, unstable). Images are published for `linux/amd64` and `linux/arm64`.
+Available tags: `0.2.0` (exact), `0.2` / `0` (tracks), `latest` (newest stable), `edge` (rebuilt nightly from `main`, unstable). Images are published for `linux/amd64` and `linux/arm64`.
 
 ### Choosing a registry
 

@@ -39,7 +39,7 @@ docker pull ghcr.io/rit-services/spirex-client:latest
 | `0.2.0` | An exact release. **Pin this in production.** |
 | `0.2` / `0` | Latest patch / latest minor on that track |
 | `latest` | Newest stable release — moves under you |
-| `edge` | Every commit on `main`. Unstable, for testing only |
+| `edge` | Rebuilt nightly from `main`. Unstable, for testing only |
 
 Pin a version for the whole stack by setting `SPIREX_VERSION` in `.env`. Every image is built by [GitHub Actions](.github/workflows/release.yml) and carries a signed provenance attestation, so you can verify it really came from this repository:
 

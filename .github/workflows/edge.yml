@@ -1,0 +1,35 @@
+# Publishes the :edge image from whatever is currently on main.
+#
+# This used to run on EVERY push to main, which meant merging a one-line docs PR
+# kicked off a four-image multi-arch build. Nightly instead: `main` is still
+# available as a pullable image, but an ordinary merge is now silent.
+#
+# Need it sooner? Actions → Edge images → Run workflow. That is the whole point
+# of keeping the manual trigger.
+name: Edge images
+
+on:
+  schedule:
+    # 03:17 UTC. Deliberately not on the hour — GitHub's scheduler queues heavily
+    # at :00 and runs get delayed.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: edge-images
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: Publish :edge
+    # An empty version tells the publish workflow to tag :edge rather than a
+    # semver release.
+    uses: ./.github/workflows/publish-images.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      version: ''

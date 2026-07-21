@@ -138,7 +138,9 @@ merged.
 > line, no version bump, no release. If your change matters to users, give it a
 > `feat:` or `fix:` prefix or it will ship invisibly.
 
-Every merge to `main` also publishes an `:edge` image, released or not.
+Merging a normal PR does **not** build images — only cutting a release does. The
+`:edge` image is rebuilt nightly from `main`, and can be triggered on demand from
+**Actions → Edge images → Run workflow**.
 
 ## Roles & who merges
 

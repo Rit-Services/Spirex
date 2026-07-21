@@ -11,8 +11,10 @@
 #   feat!: / BREAKING CHANGE:  → major, EXCEPT while 0.x where it stays minor
 #   chore: / ci: / test: / style:  → NO release at all
 #
-# A push to main that creates no release still publishes :edge, so main is
-# always available as an image without cutting a version.
+# Merging a normal PR runs ONE short job here and nothing else. Images are built
+# only when a release is actually cut — an ordinary merge used to trigger a full
+# four-image multi-arch build just to move :edge, which made every merge loud and
+# slow for no benefit. :edge now comes from edge.yml on a nightly schedule.
 name: Release
 
 on:
@@ -46,6 +48,9 @@ jobs:
   publish:
     name: Publish images
     needs: [release-please]
+    # ONLY when a release was actually cut. Every other merge stops after the job
+    # above, which takes seconds and produces nothing to notify about.
+    if: needs.release-please.outputs.released == 'true'
     # Calling the publish workflow from HERE rather than letting it trigger on
     # `push: tags` is the whole trick: a tag created with GITHUB_TOKEN does NOT
     # start another workflow run (GitHub blocks that to prevent recursion), so a
@@ -59,6 +64,4 @@ jobs:
       id-token: write
       attestations: write
     with:
-      # A real release passes its version and gets :X.Y.Z :X.Y :X :latest.
-      # No release → empty string → the publish workflow builds :edge instead.
-      version: ${{ needs.release-please.outputs.released == 'true' && needs.release-please.outputs.version || '' }}
+      version: ${{ needs.release-please.outputs.version }}
