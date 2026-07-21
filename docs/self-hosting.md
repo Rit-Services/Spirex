@@ -36,6 +36,18 @@ SPIREX_VERSION=0.2.0
 
 Available tags: `0.2.0` (exact), `0.2` / `0` (tracks), `latest` (newest stable), `edge` (every commit on `main`, unstable). Images are published for `linux/amd64` and `linux/arm64`.
 
+### Choosing a registry
+
+The same images are published to two registries with identical digests. `SPIREX_REGISTRY` in `.env` picks which one the stack pulls from — only the prefix differs, the image names are the same:
+
+```bash
+# default — GitHub Container Registry, no pull rate limits
+SPIREX_REGISTRY=ghcr.io/rit-services
+
+# or the Docker Hub mirror
+SPIREX_REGISTRY=<docker-hub-namespace>
+```
+
 ### Building from source instead
 
 Contributors and fork operators layer the build override on top of the base file:

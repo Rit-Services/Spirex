@@ -3,9 +3,15 @@
 #   cp .env.example .env      # then edit secrets in .env
 #   docker compose up -d      # postgres + server + frontend  →  http://localhost
 #
-# This file PULLS prebuilt images from GHCR — no toolchain, no compile step, and
-# no 1 GB of node_modules on your server. Pin a release with SPIREX_VERSION in
-# .env (e.g. SPIREX_VERSION=0.2.0); the default `latest` moves on every release.
+# This file PULLS prebuilt images — no toolchain, no compile step, and no 1 GB of
+# node_modules on your server. Two knobs, both optional, both set in .env:
+#
+#   SPIREX_VERSION   pin a release (e.g. 0.2.0). Default `latest` moves on every
+#                    release, so pin it in production.
+#   SPIREX_REGISTRY  where to pull from. Defaults to GHCR. Point it at the Docker
+#                    Hub mirror instead with  SPIREX_REGISTRY=<namespace>
+#                    — the image NAMES (spirex-server / spirex-client) are
+#                    identical on both registries, only the prefix changes.
 #
 # CONTRIBUTORS building from source, add the override:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
@@ -30,7 +36,7 @@ services:
       retries: 10
 
   server:
-    image: ghcr.io/rit-services/spirex-server:${SPIREX_VERSION:-latest}
+    image: ${SPIREX_REGISTRY:-ghcr.io/rit-services}/spirex-server:${SPIREX_VERSION:-latest}
     restart: unless-stopped
     # Everything in .env is passed to the server; DATABASE_URL below is computed
     # from the compose network so it always points at the `postgres` service on
@@ -48,7 +54,7 @@ services:
         condition: service_healthy
 
   frontend:
-    image: ghcr.io/rit-services/spirex-client:${SPIREX_VERSION:-latest}
+    image: ${SPIREX_REGISTRY:-ghcr.io/rit-services}/spirex-client:${SPIREX_VERSION:-latest}
     restart: unless-stopped
     # The only port you need to expose. nginx serves the SPA and proxies /api to
     # the server service. Change the left number to move it off port 80.
