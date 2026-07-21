@@ -1,0 +1,58 @@
+# Blocks a pull request whose TITLE is not a Conventional Commit.
+#
+# Why the title and not the commits: under squash merge — the only merge method
+# this repo should allow — the PR title becomes the single commit message on
+# `main`, and that is the exact string release-please parses to decide the next
+# version. A PR titled "docker stuff" merges into a commit that produces no
+# changelog line, no version bump, and no release, silently.
+#
+# The title is also the ONE thing you can still fix at the moment you merge.
+# Commit messages are already baked; a title is a text field. So this is the
+# cheapest possible place to enforce the convention.
+#
+# `edited` in the trigger list is load-bearing: without it, fixing a rejected
+# title would never re-run the check and the PR would stay blocked.
+name: PR title
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  pull-requests: read
+
+jobs:
+  lint:
+    name: title is a Conventional Commit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Must match the types in release-please-config.json. `feat` and `fix`
+          # are the only two that move the version on their own.
+          types: |
+            feat
+            fix
+            perf
+            docs
+            refactor
+            build
+            chore
+            ci
+            test
+            style
+            revert
+          # Scope is optional — `feat: x` and `feat(client): x` both pass.
+          requireScope: false
+          # Reject "Feat: Add Thing" — the changelog renders the subject verbatim,
+          # so a stray capital shows up in the published release notes forever.
+          subjectPattern: ^(?![A-Z]).+$
+          subjectPatternError: |
+            The subject "{subject}" must start with a lowercase letter.
+            It is rendered verbatim into CHANGELOG.md and the GitHub Release.

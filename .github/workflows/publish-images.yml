@@ -1,0 +1,299 @@
+# Builds and publishes the public SPIREX images.
+#
+# This workflow does NOT trigger itself. It is called by release.yml, which owns
+# versioning — see that file for why chaining beats a `push: tags` trigger.
+#
+#   version: "0.2.0"  →  :0.2.0  :0.2  :0  :latest   (latest skipped on prereleases)
+#   version: ""       →  :edge
+#
+# Each architecture is built on a NATIVE runner and pushed by digest; a merge job
+# then stitches the digests into one multi-arch manifest. That is deliberate:
+# building linux/arm64 under QEMU emulation turns `npm ci` + `prisma generate` +
+# `vite build` into a 30-minute crawl, and free arm64 runners make it minutes.
+name: Publish images
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: 'Release version WITHOUT the leading v (e.g. 0.2.0). Empty publishes :edge.'
+        type: string
+        required: false
+        default: ''
+  # Manual escape hatch: republish a version by hand if release.yml ever wedges.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version WITHOUT the leading v (e.g. 0.2.0). Leave empty to publish :edge.'
+        type: string
+        required: false
+        default: ''
+
+# Never cancel a publish in flight — a half-pushed manifest list is worse than a
+# queued run.
+concurrency:
+  group: publish-images-${{ inputs.version || 'edge' }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build ${{ matrix.image }} (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, client]
+        platform: [linux/amd64, linux/arm64]
+        # `include` here does NOT add rows — it decorates the existing image ×
+        # platform combinations with the runner that natively matches each arch.
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v7
+
+      # GHCR rejects uppercase path segments and this org is "Rit-Services", so
+      # the owner MUST be lowercased. Deriving it from github.repository_owner
+      # (not a hardcoded string) keeps forks working without editing this file.
+      - name: Compute image name
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          slug=$(echo "${{ matrix.platform }}" | tr '/' '-')
+          echo "REGISTRY_IMAGE=ghcr.io/${owner}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
+          echo "PLATFORM_SLUG=${slug}" >> "$GITHUB_ENV"
+
+      # Only used for LABELS here (the per-arch legs are untagged digests), but
+      # it still needs the right version or org.opencontainers.image.version on
+      # the layers would read "main".
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          tags: |
+            type=raw,value=${{ inputs.version != '' && inputs.version || 'edge' }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Per-arch legs are anonymous digests with no tags; the merge job owns
+          # tagging. provenance is off HERE because the extra attestation
+          # manifest confuses `imagetools create` — the merged manifest gets a
+          # proper attestation from actions/attest-build-provenance instead.
+          provenance: false
+          outputs: type=image,name=${{ env.REGISTRY_IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ env.PLATFORM_SLUG }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ env.PLATFORM_SLUG }}
+
+      # The merge job addresses each arch as image@sha256:<hex>, so all it needs
+      # is the bare hex — carried across jobs as an empty marker FILENAME.
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest='${{ steps.build.outputs.digest }}'
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.image }}-${{ env.PLATFORM_SLUG }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: merge ${{ matrix.image }} manifest
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, client]
+    steps:
+      - name: Compute image name
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "REGISTRY_IMAGE=ghcr.io/${owner}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
+
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: /tmp/digests
+          pattern: digests-${{ matrix.image }}-*
+          merge-multiple: true
+
+      - uses: docker/setup-buildx-action@v4
+
+      # Tags come from the explicit `value=`, NOT from the git ref: this workflow
+      # runs in the context of a push to main, so the ref carries no version.
+      # `latest` is gated on the version containing no hyphen — a semver
+      # prerelease (0.3.0-rc.1) always has one, and must never move `latest`.
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable=${{ inputs.version != '' && !contains(inputs.version, '-') }}
+            type=raw,value=edge,enable=${{ inputs.version == '' }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        run: |
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
+            $(printf "${REGISTRY_IMAGE}@sha256:%s " *)
+
+      # Reads back the tag we KNOW was just pushed (tags[0]) rather than
+      # meta.version — those two can diverge, and inspecting a tag that was never
+      # pushed 404s the job.
+      - name: Resolve merged digest
+        id: digest
+        run: |
+          tag=$(jq -cr '.tags[0]' <<< '${{ steps.meta.outputs.json }}' | awk -F: '{print $NF}')
+          digest=$(docker buildx imagetools inspect \
+            "${REGISTRY_IMAGE}:${tag}" \
+            --format '{{json .Manifest}}' | jq -r .digest)
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "Published ${REGISTRY_IMAGE}:${tag} @ ${digest}"
+
+      # Lets anyone verify the image really came from this repo's workflow:
+      #   gh attestation verify oci://<image>:<tag> --repo ${{ github.repository }}
+      - name: Attest provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-name: ${{ env.REGISTRY_IMAGE }}
+          subject-digest: ${{ steps.digest.outputs.digest }}
+          push-to-registry: true
+
+  mirror:
+    name: mirror ${{ matrix.image }} to Docker Hub
+    runs-on: ubuntu-latest
+    needs: [merge]
+    # Soft-gated: set the DOCKERHUB_NAMESPACE repo VARIABLE (plus DOCKERHUB_USERNAME
+    # and the DOCKERHUB_TOKEN secret) to turn mirroring on. Without it the whole job
+    # is skipped and GHCR publishing still succeeds — forks are not forced into a
+    # Docker Hub account they do not have.
+    #
+    # ⚠️ DOCKERHUB_NAMESPACE *must* be a repository VARIABLE, not a secret. GitHub
+    # does not expose the `secrets` context to a job-level `if:` at all, so
+    # `secrets.DOCKERHUB_NAMESPACE` would evaluate to empty here and this job would
+    # skip forever — with no error and no log line saying why.
+    if: ${{ vars.DOCKERHUB_NAMESPACE != '' }}
+    permissions:
+      contents: read
+      packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, client]
+    steps:
+      # Needed for README.md — the description sync at the end of this job reads
+      # it off disk.
+      - uses: actions/checkout@v7
+
+      - name: Compute image names
+        run: |
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "REGISTRY_IMAGE=ghcr.io/${owner}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
+          echo "HUB_IMAGE=docker.io/${{ vars.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.HUB_IMAGE }}
+          flavor: |
+            latest=false
+          tags: |
+            type=semver,pattern={{version}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=semver,pattern={{major}},value=${{ inputs.version || '0.0.0' }},enable=${{ inputs.version != '' }}
+            type=raw,value=latest,enable=${{ inputs.version != '' && !contains(inputs.version, '-') }}
+            type=raw,value=edge,enable=${{ inputs.version == '' }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          # Tolerates the username living in EITHER tab. The namespace below has
+          # no such luxury — see the `if:` on this job.
+          username: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # Copies the EXISTING manifest — no rebuild, so Docker Hub serves the exact
+      # same digests GHCR does and the two can never drift apart.
+      # Both metadata-action calls use an identical `tags:` config, so the tag
+      # SUFFIX is the same on either registry; only the image name differs.
+      - name: Copy manifest to Docker Hub
+        run: |
+          tag=$(jq -cr '.tags[0]' <<< '${{ steps.meta.outputs.json }}' | awk -F: '{print $NF}')
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< '${{ steps.meta.outputs.json }}') \
+            "${REGISTRY_IMAGE}:${tag}"
+
+      # Pushing an image does NOT populate the Docker Hub repository page — it is
+      # created blank and stays blank. This is the only thing that puts the README
+      # on it, so without this step the public listing is an empty page next to a
+      # pull command.
+      #
+      # ⚠️ Needs the token to carry read+write+DELETE scope. `docker login` above
+      # is happy with read/write, so a too-narrow token authenticates fine and
+      # then fails HERE — the misleading failure mode worth knowing about.
+      - name: Sync README to the Docker Hub page
+        uses: peter-evans/dockerhub-description@v5
+        with:
+          # Tolerates the username living in EITHER tab. The namespace below has
+          # no such luxury — see the `if:` on this job.
+          username: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: ${{ vars.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}
+          short-description: ${{ github.event.repository.description }}
+          # README.md is full of repo-relative links (docs/self-hosting.md, …)
+          # which would 404 on Docker Hub. This rewrites them to absolute GitHub
+          # URLs on the way over.
+          enable-url-completion: true

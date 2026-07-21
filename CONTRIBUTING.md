@@ -44,8 +44,10 @@ cp .env.example .env            # root — used by docker compose
 # 3. Apply database migrations
 npm run migrate:deploy
 
-# 4a. Run with Docker (postgres + server + frontend)
-docker compose up --build
+# 4a. Run with Docker (postgres + server + frontend), building YOUR code.
+#     The base compose file pulls published images — the override rebuilds them
+#     from this working tree, which is what you want as a contributor.
+docker compose -f docker-compose.yml -f docker-compose.build.yml up --build
 #     — or —
 # 4b. Run locally in two terminals
 npm run dev:server
@@ -67,7 +69,7 @@ More detail lives in the docs: [self-hosting](./docs/self-hosting.md),
 | `client/` | React + Vite single-page app |
 | `server/` | Express API + Prisma (PostgreSQL) |
 | `docs/`   | Self-hosting, AI, storage, SSO, external API |
-| `nginx/`  | Reverse-proxy config baked into the client image |
+| `nginx/`  | Reverse-proxy template, rendered when the client container starts |
 
 ## Tests
 
@@ -79,6 +81,10 @@ npm run test:e2e
 
 Please make sure the suite passes before opening a PR, and add coverage for
 behavior you change.
+
+CI also builds both Docker images on every pull request (**Build check**), so you
+don't need Docker locally to know whether your change breaks the image build —
+a red X on the PR tells you.
 
 ## Coding standards
 
@@ -102,6 +108,37 @@ behavior you change.
 
 A maintainer will review as soon as they can. Thanks for helping make SPIREX
 better!
+
+## Releases are automatic
+
+**Nobody tags releases by hand.** Your commit *type* is what decides the next
+version number, so the prefix in step 2 above is not a style preference — it is
+the release mechanism.
+
+| Commit prefix | Effect on the next release |
+|---|---|
+| `feat:` | **Minor** bump — `0.2.0` → `0.3.0` |
+| `fix:` · `perf:` | **Patch** bump — `0.2.0` → `0.2.1` |
+| `feat!:` or a `BREAKING CHANGE:` footer | Major bump — but while the version is still `0.x`, semver keeps it a **minor** |
+| `docs:` · `refactor:` · `build:` | Appears in the changelog, **no** version bump on its own |
+| `chore:` · `ci:` · `test:` · `style:` | **No release at all** |
+
+On every push to `main`, [release-please](https://github.com/googleapis/release-please)
+opens (or updates) a single **`chore(main): release X.Y.Z`** pull request holding
+the version bump and the generated `CHANGELOG.md` entries. Merging that PR is
+what cuts the release: it creates the git tag, publishes the GitHub Release, and
+triggers the multi-arch image build.
+
+Because this repo squash-merges, **the PR title becomes that commit message** — so
+the PR title is what actually decides the version. CI enforces it: a PR whose
+title is not a Conventional Commit fails the **PR title** check and cannot be
+merged.
+
+> ⚠️ A commit message like `updated emails` produces **nothing** — no changelog
+> line, no version bump, no release. If your change matters to users, give it a
+> `feat:` or `fix:` prefix or it will ship invisibly.
+
+Every merge to `main` also publishes an `:edge` image, released or not.
 
 ## Roles & who merges
 

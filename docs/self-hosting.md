@@ -4,13 +4,13 @@ Two supported ways to run SPIREX: **Docker Compose** (recommended) or **local de
 
 ## Docker Compose (recommended)
 
-Prereqs: Docker + Docker Compose.
+Prereqs: Docker + Docker Compose. Nothing else — `docker-compose.yml` pulls prebuilt images, so the host needs no Node toolchain and never compiles anything.
 
 ```bash
 cp .env.example .env
 # Edit .env — at minimum set:
 #   POSTGRES_PASSWORD, JWT_SECRET, ENCRYPTION_KEY   (openssl rand -hex 32)
-docker compose up -d --build
+docker compose up -d
 ```
 
 This starts three services: **postgres**, **server** (Express API, port 4000 internal), and **frontend** (nginx serving the SPA + proxying `/api` to the server). Only the frontend is exposed — on port **80** by default (`FRONTEND_PORT` to change it). Open **http://localhost**.
@@ -21,8 +21,48 @@ Useful commands:
 
 ```bash
 docker compose logs -f server     # follow API logs
+docker compose pull && docker compose up -d   # upgrade to the newest images
 docker compose down               # stop
 docker compose down -v            # stop + wipe data volumes
+```
+
+### Pinning a version
+
+`SPIREX_VERSION` in `.env` selects the image tag for both services. It defaults to `latest`, which moves on every release — **pin an exact version in production** so an upgrade is something you choose:
+
+```bash
+SPIREX_VERSION=0.2.0
+```
+
+Available tags: `0.2.0` (exact), `0.2` / `0` (tracks), `latest` (newest stable), `edge` (every commit on `main`, unstable). Images are published for `linux/amd64` and `linux/arm64`.
+
+### Building from source instead
+
+Contributors and fork operators layer the build override on top of the base file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+```
+
+If you run a **modified** SPIREX as a network service, AGPL-3.0 §13 requires the in-app "Source code" link to point at *your* source. Set `VITE_SOURCE_URL=https://github.com/you/your-fork` in `.env` before building — it is inlined at build time and cannot be changed afterwards on a prebuilt image.
+
+### Running outside the bundled compose file
+
+The published client image hardcodes nothing about the topology. Two env vars retarget the `/api` proxy without a rebuild:
+
+| Var | Default | When to change it |
+|---|---|---|
+| `SPIREX_API_UPSTREAM` | `server:4000` | Your API service is reachable under a different name/port (e.g. `spirex-server:4000` on Kubernetes) |
+| `SPIREX_DNS_RESOLVER` | `127.0.0.11` | You are **not** on a Docker bridge network. `127.0.0.11` is Docker's embedded DNS and does not exist on Kubernetes — point this at your cluster DNS or every `/api` request will fail to resolve |
+| `SPIREX_MAX_BODY_SIZE` | `320m` | You accept larger uploads than the 300 MB video ceiling |
+
+### Upgrading from a pre-published-image install
+
+The server container now runs as the **non-root `node` user** (uid 1000). Docker seeds a *fresh* `server_uploads` volume with the right ownership automatically, so new installs need nothing. A volume created by an older root-only build is root-owned and the server will fail to write attachments into it. Fix it once:
+
+```bash
+docker compose run --rm --no-deps --user root server chown -R node:node /app/server/uploads
+docker compose up -d
 ```
 
 ### Optional: MinIO object storage
@@ -30,7 +70,7 @@ docker compose down -v            # stop + wipe data volumes
 By default uploads live on the `server_uploads` docker volume (`STORAGE_DRIVER=local`). To use S3-compatible object storage, set `STORAGE_DRIVER=minio` in `.env` and start with the profile:
 
 ```bash
-docker compose --profile minio up -d --build
+docker compose --profile minio up -d
 ```
 
 See [storage.md](storage.md) for creating the bucket and pointing at AWS S3 instead.

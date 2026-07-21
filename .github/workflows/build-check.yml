@@ -1,0 +1,58 @@
+# Proves the Dockerfiles still build — on every pull request, BEFORE merge.
+#
+# Nothing is pushed to a registry here. This exists so a broken Dockerfile shows
+# up as a red X on the PR instead of as a failed release two steps later, and so
+# nobody has to run `docker build` on their own machine to find out.
+#
+# amd64 only: it is the same Dockerfile on both architectures, and doubling every
+# PR's build time to re-prove that is not worth it. Genuinely arch-specific
+# breakage (a Prisma engine that has no arm64 binary, say) surfaces in the release
+# build, which does build both.
+name: Build check
+
+on:
+  pull_request:
+
+concurrency:
+  group: build-check-${{ github.head_ref }}
+  cancel-in-progress: true
+
+jobs:
+  compose:
+    name: compose files parse
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # `config` fully resolves interpolation and schema — it catches a typo'd
+      # key or an unbalanced override that `up` would only reveal on a server.
+      - name: Validate compose (pull-first + build override)
+        run: |
+          docker compose -f docker-compose.yml config >/dev/null
+          echo "docker-compose.yml OK"
+          docker compose -f docker-compose.yml -f docker-compose.build.yml config >/dev/null
+          echo "docker-compose.yml + docker-compose.build.yml OK"
+
+  build:
+    name: build ${{ matrix.image }} image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [server, client]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build (no push)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.image }}/Dockerfile
+          platforms: linux/amd64
+          push: false
+          # Reads the release workflow's warm cache; writes to its own scope so a
+          # PR can never poison what a release build pulls from.
+          cache-from: type=gha,scope=${{ matrix.image }}-linux-amd64
+          cache-to: type=gha,mode=min,scope=pr-${{ matrix.image }}

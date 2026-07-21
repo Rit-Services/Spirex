@@ -1,0 +1,23 @@
+# Build-from-source override — for CONTRIBUTORS and for anyone running a fork.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build
+#
+# docker-compose.yml alone pulls the published images; layering this file on top
+# adds a `build:` section to the same services, so compose builds them locally
+# instead. The `image:` names are kept identical so the locally built image
+# simply takes the place of the pulled one.
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+
+  frontend:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        # AGPL-3.0 §13: if you run a MODIFIED SPIREX as a network service, the
+        # in-app "Source code" link must point at YOUR source, not upstream.
+        # Set VITE_SOURCE_URL in .env to your fork's URL before building.
+        VITE_SOURCE_URL: ${VITE_SOURCE_URL:-https://github.com/Rit-Services/Spirex}
