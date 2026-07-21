@@ -1,0 +1,64 @@
+# The ONLY thing that publishes SPIREX. Nobody tags by hand.
+#
+# On every push to main, release-please reads the Conventional Commit messages
+# since the last release and keeps an open "chore(main): release X.Y.Z" PR with
+# the version bump + generated CHANGELOG.md. Merging that PR IS the release: it
+# creates the git tag and the GitHub Release, and this workflow then builds and
+# pushes the images for that exact version.
+#
+#   feat: …          → minor bump   (0.1.0 → 0.2.0)
+#   fix: / perf: …   → patch bump   (0.1.0 → 0.1.1)
+#   feat!: / BREAKING CHANGE:  → major, EXCEPT while 0.x where it stays minor
+#   chore: / ci: / test: / style:  → NO release at all
+#
+# A push to main that creates no release still publishes :edge, so main is
+# always available as an image without cutting a version.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Never cancel a release mid-flight — a half-pushed manifest is worse than a
+# queued run. (Deliberately different from the cancel-in-progress used on CI.)
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: Maintain release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create tags + GitHub Releases
+      pull-requests: write   # open and groom the release PR
+    outputs:
+      released: ${{ steps.rp.outputs.release_created }}
+      version: ${{ steps.rp.outputs.version }}
+      tag: ${{ steps.rp.outputs.tag_name }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: rp
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    name: Publish images
+    needs: [release-please]
+    # Calling the publish workflow from HERE rather than letting it trigger on
+    # `push: tags` is the whole trick: a tag created with GITHUB_TOKEN does NOT
+    # start another workflow run (GitHub blocks that to prevent recursion), so a
+    # tag-triggered publish would silently never fire. Chaining it as a reusable
+    # workflow sidesteps that without needing a personal access token.
+    uses: ./.github/workflows/publish-images.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    with:
+      # A real release passes its version and gets :X.Y.Z :X.Y :X :latest.
+      # No release → empty string → the publish workflow builds :edge instead.
+      version: ${{ needs.release-please.outputs.released == 'true' && needs.release-please.outputs.version || '' }}
