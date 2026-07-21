@@ -24,6 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # `.env` is gitignored, and the server service declares `env_file: .env`,
+      # which compose treats as REQUIRED — so a fresh checkout cannot resolve the
+      # file at all. That is correct behaviour for real users (better to fail
+      # loudly than boot with no JWT_SECRET), so the fix belongs here, not in the
+      # compose file. Copying the example first also makes this a stronger test:
+      # it proves the exact quickstart in the README actually works.
+      - name: Seed .env from the documented example
+        run: cp .env.example .env
+
       # `config` fully resolves interpolation and schema — it catches a typo'd
       # key or an unbalanced override that `up` would only reveal on a server.
       - name: Validate compose (pull-first + build override)
