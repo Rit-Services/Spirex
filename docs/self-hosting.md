@@ -4,14 +4,17 @@ Two supported ways to run SPIREX: **Docker Compose** (recommended) or **local de
 
 ## Docker Compose (recommended)
 
-Prereqs: Docker + Docker Compose. Nothing else — `docker-compose.yml` pulls prebuilt images, so the host needs no Node toolchain and never compiles anything.
+Prereqs: Docker + Docker Compose. Nothing else — `docker-compose.yml` pulls prebuilt images, so the host needs no Node toolchain, never compiles anything, and **does not need a clone of this repository**:
 
 ```bash
-cp .env.example .env
+curl -O  https://raw.githubusercontent.com/Rit-Services/Spirex/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/Rit-Services/Spirex/main/.env.example
 # Edit .env — at minimum set:
 #   POSTGRES_PASSWORD, JWT_SECRET, ENCRYPTION_KEY   (openssl rand -hex 32)
 docker compose up -d
 ```
+
+SPIREX ships as **two images plus PostgreSQL**: `spirex-server` (the API) and `spirex-client` (nginx serving the SPA and proxying `/api` to the server). The compose file starts all three and wires them together, so you should not need to pull either image by hand.
 
 This starts three services: **postgres**, **server** (Express API, port 4000 internal), and **frontend** (nginx serving the SPA + proxying `/api` to the server). Only the frontend is exposed — on port **80** by default (`FRONTEND_PORT` to change it). Open **http://localhost**.
 
@@ -41,11 +44,11 @@ Available tags: `0.2.0` (exact), `0.2` / `0` (tracks), `latest` (newest stable),
 The same images are published to two registries with identical digests. `SPIREX_REGISTRY` in `.env` picks which one the stack pulls from — only the prefix differs, the image names are the same:
 
 ```bash
-# default — GitHub Container Registry, no pull rate limits
-SPIREX_REGISTRY=ghcr.io/rit-services
+# default — Docker Hub
+SPIREX_REGISTRY=ritservices0000
 
-# or the Docker Hub mirror
-SPIREX_REGISTRY=<docker-hub-namespace>
+# or GitHub Container Registry (no anonymous pull rate limits)
+SPIREX_REGISTRY=ghcr.io/rit-services
 ```
 
 ### Building from source instead

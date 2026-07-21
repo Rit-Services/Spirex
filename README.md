@@ -14,12 +14,17 @@
 
 ## Quick start (Docker — one command)
 
-Prereqs: Docker + Docker Compose. **No Node toolchain, no compile step** — the images are prebuilt.
+Prereqs: Docker + Docker Compose. **No Node toolchain, no compile step, and no need to clone this repo** — grab two files and go:
 
 ```bash
-cp .env.example .env   # then edit the secrets (JWT_SECRET, ENCRYPTION_KEY, DB password)
+curl -O  https://raw.githubusercontent.com/Rit-Services/Spirex/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/Rit-Services/Spirex/main/.env.example
+
+# edit the secrets: JWT_SECRET, ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_EMAIL/PASSWORD
 docker compose up -d   # pulls postgres + server + frontend
 ```
+
+Already cloned the repo? `cp .env.example .env` and `docker compose up -d` does the same thing.
 
 Open **http://localhost** and log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set in `.env` — the first boot creates that single admin account (and its organization) automatically. Migrations run on boot. The admin then invites the team from the Users page. More: [docs/self-hosting.md](docs/self-hosting.md).
 
@@ -27,12 +32,20 @@ To use MinIO object storage instead of local disk, set `STORAGE_DRIVER=minio` in
 
 ### Public images
 
+> **These two images are a pair — you need both.** `spirex-server` is the API,
+> `spirex-client` is the web UI that proxies to it. You normally never pull them
+> by hand: the `docker compose` command above starts both, plus PostgreSQL, and
+> wires them together. Pull them directly only if you're building your own
+> Kubernetes/Nomad/Portainer deployment.
+
 Published on every release for **linux/amd64** and **linux/arm64** (Apple Silicon, Raspberry Pi, Graviton):
 
 ```bash
-docker pull ghcr.io/rit-services/spirex-server:latest
-docker pull ghcr.io/rit-services/spirex-client:latest
+docker pull ritservices0000/spirex-server:latest
+docker pull ritservices0000/spirex-client:latest
 ```
+
+The same images, with identical digests, are mirrored to the GitHub Container Registry as `ghcr.io/rit-services/spirex-server` and `…-client`. Switch the whole stack over with `SPIREX_REGISTRY=ghcr.io/rit-services` in `.env`.
 
 | Tag | Meaning |
 |---|---|

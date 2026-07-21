@@ -316,7 +316,11 @@ jobs:
           username: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}
-          short-description: ${{ github.event.repository.description }}
+          # Distinct per image, and each one NAMES ITS PARTNER. On a Docker Hub
+          # search results page this single line is all a visitor sees — using the
+          # same repo description for both left them looking like alternatives to
+          # choose between, rather than two halves of one stack.
+          short-description: ${{ matrix.image == 'server' && 'SPIREX API — pairs with spirex-client; start both via docker compose. Jira alternative.' || 'SPIREX web UI — pairs with spirex-server; start both via docker compose. Jira alternative.' }}
           # README.md is full of repo-relative links (docs/self-hosting.md, …)
           # which would 404 on Docker Hub. This rewrites them to absolute GitHub
           # URLs on the way over.
