@@ -202,20 +202,44 @@ jobs:
           subject-digest: ${{ steps.digest.outputs.digest }}
           push-to-registry: true
 
+  # Exists ONLY to work around a GitHub limitation: the `secrets` context is not
+  # available in a job-level `if:`, so the mirror job below cannot test a secret
+  # directly. Reading the value into an OUTPUT here is the documented way around
+  # it, and it means DOCKERHUB_NAMESPACE works whether it was added as a
+  # repository Variable or a repository Secret.
+  #
+  # A Variable is still nicer — a Secret is masked as *** in every log line, so a
+  # misconfigured push becomes much harder to diagnose. But it works either way.
+  dockerhub-gate:
+    name: is the Docker Hub mirror configured?
+    runs-on: ubuntu-latest
+    needs: [merge]
+    outputs:
+      enabled: ${{ steps.check.outputs.enabled }}
+    steps:
+      - id: check
+        env:
+          # Only ever compared against empty — never echoed, so a secret value
+          # cannot leak into the log or the output.
+          NAMESPACE: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_NAMESPACE }}
+        run: |
+          if [ -n "$NAMESPACE" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "DOCKERHUB_NAMESPACE is set — mirroring to Docker Hub."
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "DOCKERHUB_NAMESPACE is empty — skipping the Docker Hub mirror."
+          fi
+
   mirror:
     name: mirror ${{ matrix.image }} to Docker Hub
     runs-on: ubuntu-latest
-    needs: [merge]
-    # Soft-gated: set the DOCKERHUB_NAMESPACE repo VARIABLE (plus DOCKERHUB_USERNAME
-    # and the DOCKERHUB_TOKEN secret) to turn mirroring on. Without it the whole job
-    # is skipped and GHCR publishing still succeeds — forks are not forced into a
-    # Docker Hub account they do not have.
-    #
-    # ⚠️ DOCKERHUB_NAMESPACE *must* be a repository VARIABLE, not a secret. GitHub
-    # does not expose the `secrets` context to a job-level `if:` at all, so
-    # `secrets.DOCKERHUB_NAMESPACE` would evaluate to empty here and this job would
-    # skip forever — with no error and no log line saying why.
-    if: ${{ vars.DOCKERHUB_NAMESPACE != '' }}
+    needs: [merge, dockerhub-gate]
+    # Soft-gated: set DOCKERHUB_NAMESPACE + DOCKERHUB_USERNAME + the DOCKERHUB_TOKEN
+    # secret to turn mirroring on. Without them this job is skipped and GHCR
+    # publishing still succeeds — forks are not forced into a Docker Hub account
+    # they do not have.
+    if: needs.dockerhub-gate.outputs.enabled == 'true'
     permissions:
       contents: read
       packages: read
@@ -232,7 +256,7 @@ jobs:
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "REGISTRY_IMAGE=ghcr.io/${owner}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
-          echo "HUB_IMAGE=docker.io/${{ vars.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
+          echo "HUB_IMAGE=docker.io/${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v4
 
@@ -291,7 +315,7 @@ jobs:
           # no such luxury — see the `if:` on this job.
           username: ${{ vars.DOCKERHUB_USERNAME || secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-          repository: ${{ vars.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}
+          repository: ${{ vars.DOCKERHUB_NAMESPACE || secrets.DOCKERHUB_NAMESPACE }}/spirex-${{ matrix.image }}
           short-description: ${{ github.event.repository.description }}
           # README.md is full of repo-relative links (docs/self-hosting.md, …)
           # which would 404 on Docker Hub. This rewrites them to absolute GitHub
