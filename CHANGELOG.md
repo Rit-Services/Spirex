@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.0](https://github.com/Rit-Services/Spirex/compare/v0.2.0...v0.3.0) (2026-07-21)
+
+
+### ✨ Features
+
+* make the image registry configurable via SPIREX_REGISTRY ([1a35c32](https://github.com/Rit-Services/Spirex/commit/1a35c3266e3be22eefb212100833672f9b2fb672))
+
+
+### 🐛 Bug Fixes
+
+* **ci:** let the Docker Hub mirror run when its config is a secret ([88253d2](https://github.com/Rit-Services/Spirex/commit/88253d2a8b70de2ae336afce708f22d2a9174977))
+* **ci:** let the Docker Hub mirror run when its config is a secret ([41dd904](https://github.com/Rit-Services/Spirex/commit/41dd904673370ecf1a05ce6934aaffe70fc23f3c))
+
 ## [0.2.0](https://github.com/Rit-Services/Spirex/compare/v0.1.0...v0.2.0) (2026-07-21)
 
 
@@ -18,4 +31,3 @@
 ### ♻️ Refactoring
 
 * finish spirex rename and patch multer/nodemailer CVEs ([c7a44c0](https://github.com/Rit-Services/Spirex/commit/c7a44c0f82a31c1709e7520e195dc3fbef1e5b34))
-
