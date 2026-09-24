@@ -8,11 +8,11 @@
 #
 #   SPIREX_VERSION   pin a release (e.g. 0.2.0). Default `latest` moves on every
 #                    release, so pin it in production.
-#   SPIREX_REGISTRY  where to pull from. Defaults to Docker Hub. The same images,
-#                    with identical digests, are also on GitHub Container Registry:
-#                        SPIREX_REGISTRY=ghcr.io/rit-services
-#                    Only the prefix changes — the image NAMES (spirex-server /
-#                    spirex-client) are the same on both.
+#   SPIREX_REGISTRY  where to pull from. Defaults to Docker Hub (ritservices0000),
+#                    the only PUBLIC registry today. Override it only to pull from
+#                    your own mirror. The GHCR copies (ghcr.io/rit-services) are
+#                    not public yet, so pointing there fails with `unauthorized`
+#                    (issue #12).
 #
 # CONTRIBUTORS building from source, add the override:
 #   docker compose -f docker-compose.yml -f docker-compose.build.yml up -d --build

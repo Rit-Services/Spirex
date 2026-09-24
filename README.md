@@ -45,7 +45,7 @@ docker pull ritservices0000/spirex-server:latest
 docker pull ritservices0000/spirex-client:latest
 ```
 
-The same images, with identical digests, are mirrored to the GitHub Container Registry as `ghcr.io/rit-services/spirex-server` and `…-client`. Switch the whole stack over with `SPIREX_REGISTRY=ghcr.io/rit-services` in `.env`.
+Docker Hub is the only public registry for now. Copies also go to the GitHub Container Registry (`ghcr.io/rit-services/…`), but those are **not public yet** and anonymous pulls fail with `unauthorized`. Stick with the default.
 
 | Tag | Meaning |
 |---|---|
@@ -57,7 +57,7 @@ The same images, with identical digests, are mirrored to the GitHub Container Re
 Pin a version for the whole stack by setting `SPIREX_VERSION` in `.env`. Every image is built by [GitHub Actions](.github/workflows/release.yml) and carries a signed provenance attestation, so you can verify it really came from this repository:
 
 ```bash
-gh attestation verify oci://ghcr.io/rit-services/spirex-server:latest --repo Rit-Services/Spirex
+gh attestation verify oci://ritservices0000/spirex-server:latest --repo Rit-Services/Spirex
 ```
 
 Releases are cut automatically from [Conventional Commits](https://www.conventionalcommits.org/) — see [CONTRIBUTING.md](CONTRIBUTING.md#releases-are-automatic). Full history in [CHANGELOG.md](CHANGELOG.md).
