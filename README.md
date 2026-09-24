@@ -14,12 +14,17 @@
 
 ## Quick start (Docker — one command)
 
-Prereqs: Docker + Docker Compose. **No Node toolchain, no compile step** — the images are prebuilt.
+Prereqs: Docker + Docker Compose. **No Node toolchain, no compile step, and no need to clone this repo** — grab two files and go:
 
 ```bash
-cp .env.example .env   # then edit the secrets (JWT_SECRET, ENCRYPTION_KEY, DB password)
+curl -O  https://raw.githubusercontent.com/Rit-Services/Spirex/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/Rit-Services/Spirex/main/.env.example
+
+# edit the secrets: JWT_SECRET, ENCRYPTION_KEY, POSTGRES_PASSWORD, ADMIN_EMAIL/PASSWORD
 docker compose up -d   # pulls postgres + server + frontend
 ```
+
+Already cloned the repo? `cp .env.example .env` and `docker compose up -d` does the same thing.
 
 Open **http://localhost** and log in with the `ADMIN_EMAIL` / `ADMIN_PASSWORD` you set in `.env` — the first boot creates that single admin account (and its organization) automatically. Migrations run on boot. The admin then invites the team from the Users page. More: [docs/self-hosting.md](docs/self-hosting.md).
 
@@ -27,24 +32,32 @@ To use MinIO object storage instead of local disk, set `STORAGE_DRIVER=minio` in
 
 ### Public images
 
+> **These two images are a pair — you need both.** `spirex-server` is the API,
+> `spirex-client` is the web UI that proxies to it. You normally never pull them
+> by hand: the `docker compose` command above starts both, plus PostgreSQL, and
+> wires them together. Pull them directly only if you're building your own
+> Kubernetes/Nomad/Portainer deployment.
+
 Published on every release for **linux/amd64** and **linux/arm64** (Apple Silicon, Raspberry Pi, Graviton):
 
 ```bash
-docker pull ghcr.io/rit-services/spirex-server:latest
-docker pull ghcr.io/rit-services/spirex-client:latest
+docker pull ritservices0000/spirex-server:latest
+docker pull ritservices0000/spirex-client:latest
 ```
+
+Docker Hub is the only public registry for now. Copies also go to the GitHub Container Registry (`ghcr.io/rit-services/…`), but those are **not public yet** and anonymous pulls fail with `unauthorized`. Stick with the default.
 
 | Tag | Meaning |
 |---|---|
 | `0.2.0` | An exact release. **Pin this in production.** |
 | `0.2` / `0` | Latest patch / latest minor on that track |
 | `latest` | Newest stable release — moves under you |
-| `edge` | Every commit on `main`. Unstable, for testing only |
+| `edge` | Rebuilt nightly from `main`. Unstable, for testing only |
 
 Pin a version for the whole stack by setting `SPIREX_VERSION` in `.env`. Every image is built by [GitHub Actions](.github/workflows/release.yml) and carries a signed provenance attestation, so you can verify it really came from this repository:
 
 ```bash
-gh attestation verify oci://ghcr.io/rit-services/spirex-server:latest --repo Rit-Services/Spirex
+gh attestation verify oci://ritservices0000/spirex-server:latest --repo Rit-Services/Spirex
 ```
 
 Releases are cut automatically from [Conventional Commits](https://www.conventionalcommits.org/) — see [CONTRIBUTING.md](CONTRIBUTING.md#releases-are-automatic). Full history in [CHANGELOG.md](CHANGELOG.md).

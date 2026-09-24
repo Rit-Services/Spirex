@@ -29,6 +29,9 @@ jobs:
   lint:
     name: title is a Conventional Commit
     runs-on: ubuntu-latest
+    # release-please titles its own PR "chore(main): release X.Y.Z", which is
+    # already conventional by construction. Checking it just adds noise.
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     steps:
       - uses: amannn/action-semantic-pull-request@v6
         env:

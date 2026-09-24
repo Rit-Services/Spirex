@@ -21,6 +21,12 @@ jobs:
   compose:
     name: compose files parse
     runs-on: ubuntu-latest
+    # release-please's PR only bumps version numbers and regenerates CHANGELOG.md
+    # — no Dockerfile, no source, no compose. Building images for it is pure waste
+    # and turns every merge into a wall of notifications. Safe to skip because
+    # `gitleaks` is the only REQUIRED check; a required check that never reports
+    # would leave the PR stuck on "Expected — waiting for status" forever.
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     steps:
       - uses: actions/checkout@v7
 
@@ -45,6 +51,7 @@ jobs:
   build:
     name: build ${{ matrix.image }} image
     runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     strategy:
       fail-fast: false
       matrix:
