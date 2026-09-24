@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.3.1](https://github.com/Rit-Services/Spirex/compare/v0.3.0...v0.3.1) (2026-09-24)
+
+
+### 🐛 Bug Fixes
+
+* make the docker compose quick start pull from public images ([635dfff](https://github.com/Rit-Services/Spirex/commit/635dfffc81ad40ecc7b6ad7466a0600ef7c39928))
+* stop pointing self-hosters at private GHCR images ([ae4e07e](https://github.com/Rit-Services/Spirex/commit/ae4e07e7e4fba82ce5f57b2d02ebe71a5c2d1582)), closes [#12](https://github.com/Rit-Services/Spirex/issues/12)
+
+
+### 📚 Documentation
+
+* make the images discoverable without cloning the repo ([4129a90](https://github.com/Rit-Services/Spirex/commit/4129a90ee0e8c7ea091008548dd83c1ccb09f1ed))
+
 ## [0.3.0](https://github.com/Rit-Services/Spirex/compare/v0.2.0...v0.3.0) (2026-07-21)
 
 
