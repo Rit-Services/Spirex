@@ -1,0 +1,29 @@
+# ============================================================================
+# Dependabot — automated dependency update PRs
+# ----------------------------------------------------------------------------
+# Runs ONCE A MONTH, batches every update into a single grouped PR per
+# directory (root, client, server), and assigns the PR to the maintainer.
+#
+# NOTE: this file does NOT control who gets *emailed*. Review requests for
+# Dependabot PRs come from .github/CODEOWNERS (the `reviewers` field was
+# removed by GitHub on 2025-05-20), and email delivery depends on each
+# account's own GitHub notification settings — not on this config.
+# ============================================================================
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/client"
+      - "/server"
+    schedule:
+      interval: "monthly"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Hassan-RIT"
+    groups:
+      all-dependencies:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "chore(deps)"
