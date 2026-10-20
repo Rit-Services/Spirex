@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/Rit-Services/Spirex/compare/v0.3.1...v0.3.2) (2026-10-20)
+
+
+### 🐛 Bug Fixes
+
+* **client:** migrate PostCSS/CSS pipeline to Tailwind CSS v4 ([5d0ac68](https://github.com/Rit-Services/Spirex/commit/5d0ac68526bb3254e253554e37890d97e05bb0a6))
+
 ## [0.3.1](https://github.com/Rit-Services/Spirex/compare/v0.3.0...v0.3.1) (2026-09-24)
 
 
